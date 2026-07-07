@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../vendor/symfony/routing/Loader/schema/routing.schema.json
+
+# This file is the entry point to configure the routes of your app.
+# Methods with the #[Route] attribute are automatically imported.
+# See also https://symfony.com/doc/current/routing.html
+
+# To list all registered routes, run the following command:
+#   bin/console debug:router
+
+catalog_controllers:
+    resource:
+        path: ../src/Catalog/UI/Http/
+        namespace: App\Catalog\UI\Http
+    type: attribute
+
+inventory_controllers:
+    resource:
+        path: ../src/Inventory/UI/Http/
+        namespace: App\Inventory\UI\Http
+    type: attribute
+
+# App-level controllers (homepage / health) — outside the Catalog bounded context.
+app_controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\Controller
+    type: attribute

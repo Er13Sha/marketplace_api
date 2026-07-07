@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Проект Catalog — объяснение DDD и Symfony</title>
+<style>
+    @page {
+        size: A4;
+        margin: 18mm 16mm 20mm 16mm;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body {
+        font-family: Arial, "Segoe UI", Helvetica, sans-serif;
+        font-size: 11pt;
+        line-height: 1.55;
+        color: #1f2933;
+        margin: 0;
+    }
+    h1, h2, h3, h4 { color: #1a2a4f; line-height: 1.25; }
+    h1 { font-size: 22pt; }
+    h2 {
+        font-size: 16pt;
+        border-bottom: 3px solid #2563eb;
+        padding-bottom: 4px;
+        margin-top: 28px;
+    }
+    h3 { font-size: 13pt; margin-top: 20px; color: #2563eb; }
+    h4 { font-size: 11.5pt; margin-top: 14px; color: #334155; }
+    p { margin: 8px 0; }
+    code {
+        font-family: Consolas, "Courier New", monospace;
+        background: #eef2ff;
+        color: #3730a3;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 9.8pt;
+    }
+    pre {
+        font-family: Consolas, "Courier New", monospace;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 12px 14px;
+        border-radius: 8px;
+        font-size: 9pt;
+        line-height: 1.45;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+    pre code { background: none; color: inherit; padding: 0; }
+    .kw { color: #c792ea; }
+    .str { color: #c3e88d; }
+    .cmt { color: #6b7a99; font-style: italic; }
+    .fn { color: #82aaff; }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 9.8pt;
+    }
+    th, td {
+        border: 1px solid #cbd5e1;
+        padding: 7px 9px;
+        text-align: left;
+        vertical-align: top;
+    }
+    th { background: #2563eb; color: #fff; }
+    tr:nth-child(even) td { background: #f1f5f9; }
+    .callout {
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 12px 0;
+        font-size: 10pt;
+    }
+    .info { background: #eff6ff; border-left: 5px solid #2563eb; }
+    .tip  { background: #ecfdf5; border-left: 5px solid #10b981; }
+    .warn { background: #fffbeb; border-left: 5px solid #f59e0b; }
+    .callout b { display: block; margin-bottom: 3px; }
+    ul, ol { margin: 8px 0 8px 0; padding-left: 22px; }
+    li { margin: 4px 0; }
+    .analogy {
+        background: #fdf4ff;
+        border: 1px dashed #c026d3;
+        border-radius: 8px;
+        padding: 8px 14px;
+        margin: 10px 0;
+        font-size: 10pt;
+    }
+    .analogy b { color: #a21caf; }
+
+    /* Титульная страница */
+    .cover {
+        height: 247mm;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        page-break-after: always;
+    }
+    .cover .badge {
+        display: inline-block;
+        background: #2563eb;
+        color: #fff;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 10pt;
+        width: fit-content;
+        margin-bottom: 18px;
+    }
+    .cover h1 { font-size: 30pt; margin: 0 0 10px 0; }
+    .cover .sub { font-size: 14pt; color: #475569; margin-bottom: 30px; }
+    .cover .meta { font-size: 10pt; color: #64748b; border-top: 2px solid #e2e8f0; padding-top: 14px; }
+
+    .section { page-break-before: always; }
+    .nobreak { page-break-inside: avoid; }
+
+    /* Диаграмма слоёв */
+    .layers { margin: 16px 0; }
+    .layer {
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 7px 0;
+        border: 2px solid;
+    }
+    .layer b { font-size: 11.5pt; }
+    .layer .role { font-size: 9.5pt; color: #334155; }
+    .l-ui   { background: #fef2f2; border-color: #ef4444; }
+    .l-app  { background: #fff7ed; border-color: #f97316; }
+    .l-dom  { background: #ecfdf5; border-color: #10b981; }
+    .l-inf  { background: #eff6ff; border-color: #3b82f6; }
+    .arrow-down { text-align: center; color: #64748b; font-size: 13pt; margin: -2px 0; }
+
+    .flow-step {
+        border-left: 3px solid #2563eb;
+        padding: 4px 0 4px 14px;
+        margin: 8px 0;
+    }
+    .flow-step .n {
+        display: inline-block;
+        background: #2563eb;
+        color: #fff;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        text-align: center;
+        line-height: 22px;
+        font-size: 9.5pt;
+        margin-right: 8px;
+    }
+    .toc li { margin: 6px 0; }
+    .small { font-size: 9.5pt; color: #64748b; }
+</style>
+</head>
+<body>
+
+<!-- ===================== ТИТУЛ ===================== -->
+<div class="cover">
+    <span class="badge">Domain-Driven Design · Symfony 8.1 · PHP 8.4</span>
+    <h1>Проект «Catalog»</h1>
+    <div class="sub">Как устроен бэкенд каталога товаров и зачем нужен каждый его слой.<br>Объяснение для тех, кто не знаком с DDD и Symfony.</div>
+    <div class="meta">
+        Учебный разбор архитектуры · бэкенд <code>higload_app</code><br>
+        Один ограниченный контекст (bounded context): <b>Catalog</b><br>
+        Два HTTP-эндпоинта: создать товар и получить товар по id
+    </div>
+</div>
+
+<!-- ===================== ОГЛАВЛЕНИЕ ===================== -->
+<h2>Содержание</h2>
+<ol class="toc">
+    <li>Что это за проект и что он умеет</li>
+    <li>Что такое Symfony (и зачем фреймворк)</li>
+    <li>Что такое DDD и какую проблему он решает</li>
+    <li>Четыре слоя архитектуры</li>
+    <li>Главные понятия DDD на примере этого проекта</li>
+    <li>CQRS: команды и запросы</li>
+    <li>Механизмы Symfony, которые всё связывают</li>
+    <li>Сквозной сценарий №1: создание товара (POST)</li>
+    <li>Сквозной сценарий №2: чтение товара (GET)</li>
+    <li>Карта файлов проекта</li>
+    <li>Зачем всё это: выгоды подхода</li>
+    <li>Краткий словарь терминов</li>
+</ol>
+
+<!-- ===================== 1 ===================== -->
+<div class="section">
+<h2>1. Что это за проект и что он умеет</h2>
+<p>Это <b>серверная часть (бэкенд)</b> интернет-магазина — а точнее, его маленький кусочек, отвечающий за <b>каталог товаров</b>. Сейчас он умеет ровно две вещи, доступные по сети как HTTP-запросы (то, что браузер или мобильное приложение отправляет на сервер):</p>
+<ul>
+    <li><b>Создать товар</b> — <code>POST /api/catalog/products</code>. Клиент присылает артикул, название, цену, остаток на складе — сервер сохраняет новый товар в базу данных.</li>
+    <li><b>Получить товар по идентификатору</b> — <code>GET /api/catalog/products/{id}</code>. Клиент присылает id — сервер возвращает данные товара в формате JSON.</li>
+</ul>
+<div class="analogy"><b>Аналогия.</b> Представьте склад. POST — это «оформить новый товар и положить его на полку». GET — это «принеси мне карточку товара с такой-то биркой». Весь проект — это правила и сотрудники, которые делают эти две операции аккуратно и без ошибок.</div>
+<p>Технологии: язык <b>PHP 8.4</b>, фреймворк <b>Symfony 8.1</b>, база данных <b>PostgreSQL</b> (через библиотеку Doctrine), быстрый кэш <b>Redis</b>. Дальше разберём, что значит каждое слово и зачем оно тут.</p>
+</div>
+
+<!-- ===================== 2 ===================== -->
+<div class="section">
+<h2>2. Что такое Symfony (и зачем нужен фреймворк)</h2>
+<p><b>Фреймворк</b> — это готовый «каркас» приложения. Без него вам пришлось бы самим писать кучу скучного кода: как принять HTTP-запрос, как разобрать адрес (URL), как достать данные из базы, как вернуть ответ. Фреймворк всё это уже умеет — вы пишете только свою бизнес-логику.</p>
+<p><b>Symfony</b> — один из двух самых популярных PHP-фреймворков. Из того, что он даёт нашему проекту, важны четыре вещи:</p>
+<table>
+    <tr><th>Механизм Symfony</th><th>Что делает простыми словами</th></tr>
+    <tr><td><b>Роутинг (Routing)</b></td><td>Сопоставляет адрес запроса (<code>/api/catalog/products</code>) с конкретным методом в коде, который его обработает.</td></tr>
+    <tr><td><b>Контейнер / DI</b></td><td>«Сборщик» объектов. Сам создаёт нужные классы и передаёт их друг другу. Подробнее — в разделе 7.</td></tr>
+    <tr><td><b>Messenger</b></td><td>«Почта» внутри приложения: пересылает сообщения (команды, запросы, события) от отправителя к обработчику.</td></tr>
+    <tr><td><b>Doctrine</b></td><td>Переводчик между объектами PHP и таблицами базы данных (ORM). Вы работаете с объектом <code>Product</code>, а он сам пишет SQL.</td></tr>
+</table>
+<div class="tip callout"><b>Главная мысль</b>Symfony — это про <i>технику</i> (HTTP, база, очереди). DDD (следующий раздел) — это про то, как <i>организовать бизнес-логику</i>, чтобы она не превратилась в кашу. Эти две вещи дополняют друг друга.</div>
+</div>
+
+<!-- ===================== 3 ===================== -->
+<div class="section">
+<h2>3. Что такое DDD и какую проблему он решает</h2>
+<p><b>DDD (Domain-Driven Design, «проектирование на основе предметной области»)</b> — это подход к организации кода. Главная идея простая: <b>в центре приложения должны быть бизнес-правила, а не база данных и не фреймворк</b>.</p>
+
+<h3>Проблема, которую он решает</h3>
+<p>В типичном «быстром» приложении бизнес-правила размазаны повсюду: немного в контроллере, немного в SQL-запросе, немного в шаблоне. Пока проект маленький — нормально. Когда он растёт, такой код становится трудно менять: одно изменение ломает три других места, а понять «где же правило про отрицательный остаток» невозможно.</p>
+
+<h3>Решение DDD</h3>
+<p>DDD говорит: выдели <b>«предметную область» (Domain)</b> — сердце с чистыми бизнес-правилами — и не пускай туда технические детали. База данных, HTTP, кэш — это «périphérie», они снаружи и могут меняться, не задевая ядро.</p>
+
+<div class="analogy"><b>Аналогия с рестораном.</b> Domain — это рецепты и стандарты блюд (что считается правильным борщом). Infrastructure — это плита, холодильник, поставщик продуктов (их можно заменить, рецепт не изменится). UI — это официант, принимающий заказ. DDD требует: рецепт не должен зависеть от того, какой марки у вас холодильник.</div>
+
+<div class="info callout"><b>Ключевой принцип: зависимости направлены внутрь</b>Внешние слои (UI, Infrastructure) знают о ядре (Domain) и зависят от него. Но <b>ядро не знает о них ничего</b>. <code>Product</code> не подозревает, что существует PostgreSQL или HTTP. Благодаря этому ядро легко тестировать и оно не ломается при смене технологий.</div>
+</div>
+
+<!-- ===================== 4 ===================== -->
+<div class="section">
+<h2>4. Четыре слоя архитектуры</h2>
+<p>Проект разложен по папкам, и каждая папка — это «слой» с чёткой ответственностью. Посмотрите на путь к файлам: <code>src/Catalog/<b>Domain</b>/…</code>, <code>…/<b>Application</b>/…</code>, <code>…/<b>Infrastructure</b>/…</code>, <code>…/<b>UI</b>/…</code>.</p>
+
+<div class="layers nobreak">
+    <div class="layer l-ui">
+        <b>UI (интерфейс)</b> — <span class="role">приём HTTP-запросов и формирование ответов</span><br>
+        <span class="small">Контроллер <code>ProductController</code>, DTO запроса <code>CreateProductRequest</code></span>
+    </div>
+    <div class="arrow-down">↓ зависит от ↓</div>
+    <div class="layer l-app">
+        <b>Application (приложение)</b> — <span class="role">сценарии: «что нужно сделать по шагам»</span><br>
+        <span class="small">Команды/запросы и их обработчики, порт кэша, read-модель <code>ProductView</code></span>
+    </div>
+    <div class="arrow-down">↓ зависит от ↓</div>
+    <div class="layer l-dom">
+        <b>Domain (предметная область) — ЯДРО</b> — <span class="role">бизнес-правила, не зависит ни от чего</span><br>
+        <span class="small">Сущность <code>Product</code>, объекты-значения <code>Sku</code>/<code>Price</code>/<code>ProductId</code>, события, интерфейс репозитория</span>
+    </div>
+    <div class="arrow-down">↑ реализует интерфейсы ядра ↑</div>
+    <div class="layer l-inf">
+        <b>Infrastructure (инфраструктура)</b> — <span class="role">техническая реализация: база, кэш, ORM</span><br>
+        <span class="small">Doctrine-репозиторий, Redis-кэш, кастомный тип <code>ProductIdType</code>, XML-маппинг</span>
+    </div>
+</div>
+
+<table>
+    <tr><th>Слой</th><th>Отвечает за</th><th>Что НЕ должен делать</th></tr>
+    <tr><td><b>Domain</b></td><td>Правила: «цена не может быть отрицательной», «остаток ≥ 0», «артикул — это 8–20 заглавных букв/цифр»</td><td>Знать про SQL, HTTP, JSON, Symfony</td></tr>
+    <tr><td><b>Application</b></td><td>Оркестровать: «возьми данные → создай товар → сохрани → разошли события»</td><td>Содержать сами бизнес-правила (они в Domain)</td></tr>
+    <tr><td><b>Infrastructure</b></td><td>Реально писать в PostgreSQL, читать из Redis, переводить объекты в строки</td><td>Содержать бизнес-логику</td></tr>
+    <tr><td><b>UI</b></td><td>Принять JSON, проверить формат, вызвать сценарий, вернуть ответ и код 201/200/400/404</td><td>Принимать бизнес-решения</td></tr>
+</table>
+</div>
+
+<!-- ===================== 5 ===================== -->
+<div class="section">
+<h2>5. Главные понятия DDD на примере этого проекта</h2>
+
+<h3>5.1. Ограниченный контекст (Bounded Context)</h3>
+<p>Большую систему делят на самостоятельные части — контексты. У нас один контекст — <b>Catalog</b> (каталог). В большом магазине были бы ещё «Корзина», «Оплата», «Доставка». Каждый контекст — свой мир со своими правилами и своим словарём. Это видно по пути <code>src/Catalog/…</code> — всё лежит внутри одного контекста.</p>
+
+<h3>5.2. Сущность и Агрегат (Entity / Aggregate): <code>Product</code></h3>
+<p><b>Сущность</b> — объект, у которого есть уникальный идентификатор и своя «жизнь» во времени (его можно менять, но это всё тот же объект). Наш <code>Product</code> — это сущность и одновременно <b>агрегат</b>: главный объект, который отвечает за свою целостность.</p>
+<p>Важно: правила живут <i>внутри</i> объекта. Нельзя положить отрицательный остаток — объект сам это запретит:</p>
+<pre><code><span class="kw">public function</span> <span class="fn">updateStock</span>(<span class="kw">int</span> $newStock): <span class="kw">void</span>
+{
+    <span class="kw">if</span> ($newStock &lt; 0) <span class="kw">throw new</span> \DomainException(<span class="str">'Stock cannot be negative'</span>);
+    $this->stock = $newStock;
+    $this->updatedAt = <span class="kw">new</span> \DateTimeImmutable();
+    $this-><span class="fn">recordUpdated</span>(); <span class="cmt">// запомнить, что товар изменился</span>
+}</code></pre>
+<div class="tip callout"><b>Почему это хорошо</b>Невозможно «случайно» создать неправильный товар из другого места программы. Правило в одном месте — в самом объекте. Это и есть «защита инвариантов».</div>
+
+<h3>5.3. Объект-значение (Value Object): <code>Sku</code>, <code>Price</code>, <code>ProductId</code></h3>
+<p><b>Объект-значение</b> — это маленький неизменяемый объект, который описывается только своим значением и не имеет собственного «id». Деньги, артикул, идентификатор — отличные кандидаты.</p>
+<p>Зачем заворачивать цену в класс <code>Price</code>, а не хранить просто число? Чтобы <b>правила и смысл были рядом со значением</b>:</p>
+<pre><code><span class="kw">final class</span> Price
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(<span class="kw">private int</span> $amount, <span class="kw">private string</span> $currency = <span class="str">'KZT'</span>)
+    {
+        <span class="kw">if</span> ($amount &lt; 0) <span class="kw">throw new</span> \InvalidArgumentException(<span class="str">'Price cannot be negative'</span>);
+    }
+    <span class="cmt">// два объекта-значения равны, если равны их значения</span>
+    <span class="kw">public function</span> <span class="fn">equals</span>(self $other): <span class="kw">bool</span>
+    {
+        <span class="kw">return</span> $this->amount === $other->amount && $this->currency === $other->currency;
+    }
+}</code></pre>
+<div class="analogy"><b>Аналогия.</b> Купюра в 100 тенге равноценна любой другой купюре в 100 тенге — нам не важен её серийный номер. Это «объект-значение». А вот сотрудник Иван — это «сущность»: даже два полных тёзки — разные люди.</div>
+<p>Артикул <code>Sku</code> хранит правило формата прямо в себе, в виде константы (её же переиспользует слой UI для проверки ввода — правило не дублируется):</p>
+<pre><code><span class="kw">final class</span> Sku
+{
+    <span class="kw">public const</span> PATTERN = <span class="str">'/^[A-Z0-9]{8,20}$/'</span>; <span class="cmt">// 8–20 заглавных букв и цифр</span>
+}</code></pre>
+
+<h3>5.4. Доменные события (Domain Events): <code>ProductCreatedEvent</code>, <code>ProductUpdatedEvent</code></h3>
+<p><b>Доменное событие</b> — это факт «что-то важное произошло в бизнесе»: <i>товар создан</i>, <i>товар изменён</i>. Агрегат сам «записывает» такие факты, когда меняется. Позже их можно разослать другим частям системы (поиск, аналитика, уведомления) — и им не нужно для этого лезть внутрь нашего кода.</p>
+<pre><code><span class="cmt">// внутри Product: накапливаем события, потом их «забирают»</span>
+<span class="kw">public function</span> <span class="fn">pullDomainEvents</span>(): <span class="kw">array</span>
+{
+    $events = $this->domainEvents;
+    $this->domainEvents = []; <span class="cmt">// очищаем, чтобы не разослать дважды</span>
+    <span class="kw">return</span> $events;
+}</code></pre>
+<div class="info callout"><b>Тонкость DDD, которую мы исправили</b>Раньше событие собиралось в обработчике (снаружи объекта). Это неправильно: «знание о том, что товар создан» — принадлежит самому товару. Теперь <code>Product</code> сам записывает событие в конструкторе, а обработчик лишь забирает и рассылает.</div>
+
+<h3>5.5. Репозиторий (Repository) и «порт»</h3>
+<p><b>Репозиторий</b> — это «хранилище объектов»: умеет сохранить товар и найти его по id. Хитрость DDD: ядро объявляет <i>только интерфейс</i> (что должно уметь хранилище), а <i>как именно</i> — пишет Infrastructure.</p>
+<pre><code><span class="cmt">// Domain: контракт (порт). Никакого SQL — только намерение.</span>
+<span class="kw">interface</span> ProductRepositoryInterface
+{
+    <span class="kw">public function</span> <span class="fn">save</span>(Product $product): <span class="kw">void</span>;
+    <span class="kw">public function</span> <span class="fn">findById</span>(ProductId $id): ?Product;
+}</code></pre>
+<pre><code><span class="cmt">// Infrastructure: реализация через Doctrine (вот тут уже база)</span>
+<span class="kw">class</span> ProductRepositoryDoctrine <span class="kw">implements</span> ProductRepositoryInterface
+{
+    <span class="kw">public function</span> <span class="fn">save</span>(Product $product): <span class="kw">void</span>
+    {
+        $this->em-><span class="fn">persist</span>($product);
+        $this->em-><span class="fn">flush</span>(); <span class="cmt">// здесь Doctrine пишет SQL INSERT</span>
+    }
+}</code></pre>
+<div class="tip callout"><b>Зачем такая «двойственность»</b>Это называется «инверсия зависимостей». Завтра вы смените PostgreSQL на MongoDB — поменяете только класс в Infrastructure, а всё ядро и сценарии останутся нетронутыми, потому что они зависят от <i>интерфейса</i>, а не от базы.</div>
+</div>
+
+<!-- ===================== 6 ===================== -->
+<div class="section">
+<h2>6. CQRS: команды и запросы</h2>
+<p><b>CQRS</b> (Command Query Responsibility Segregation) — «разделение ответственности команд и запросов». Идея в одном предложении: <b>операции, которые меняют данные, и операции, которые только читают данные, — это разные миры, и обрабатывать их надо по-разному.</b></p>
+<table>
+    <tr><th></th><th>Команда (Command)</th><th>Запрос (Query)</th></tr>
+    <tr><td>Цель</td><td>Изменить состояние («создай товар»)</td><td>Прочитать состояние («дай товар»)</td></tr>
+    <tr><td>Возвращает</td><td>Ничего (или только подтверждение)</td><td>Данные для показа</td></tr>
+    <tr><td>В проекте</td><td><code>CreateProductCommand</code> → <code>CreateProductHandler</code></td><td><code>GetProductQuery</code> → <code>GetProductHandler</code></td></tr>
+    <tr><td>Идёт через шину</td><td><code>command.bus</code></td><td><code>query.bus</code></td></tr>
+</table>
+<p>Команда — это просто «конверт с данными» о намерении. Сама она ничего не делает; её исполняет <b>обработчик (handler)</b>:</p>
+<pre><code><span class="kw">class</span> CreateProductCommand <span class="cmt">// просто данные намерения</span>
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="kw">public readonly</span> Sku $sku,
+        <span class="kw">public readonly string</span> $name,
+        <span class="kw">public readonly</span> Price $price,
+        <span class="kw">public readonly int</span> $stock,
+        <span class="kw">public readonly</span> ?<span class="kw">string</span> $description
+    ) {}
+}</code></pre>
+<div class="info callout"><b>Зачем разделять</b>Чтение часто можно ускорить (кэш, упрощённые модели данных), а запись — требует строгих проверок. Разделив их, мы оптимизируем каждую сторону отдельно. В нашем проекте чтение использует кэш Redis и лёгкую модель <code>ProductView</code>, а запись идёт через полноценный агрегат <code>Product</code> с проверками.</div>
+</div>
+
+<!-- ===================== 7 ===================== -->
+<div class="section">
+<h2>7. Механизмы Symfony, которые всё связывают</h2>
+
+<h3>7.1. Контейнер и внедрение зависимостей (Dependency Injection)</h3>
+<p>Объекту <code>CreateProductHandler</code> нужны репозиторий и шина событий. Он их <b>не создаёт сам</b> — он просто заявляет в конструкторе «мне нужно вот это», а Symfony-контейнер при запуске сам создаёт и «вкладывает» нужные объекты. Это и есть <b>внедрение зависимостей</b>.</p>
+<div class="analogy"><b>Аналогия.</b> Вы не строите автомобиль, чтобы доехать до работы, — вам его «подают». Классу подают всё, что ему нужно, готовым.</div>
+<p>В файле <code>config/services.yaml</code> мы говорим контейнеру, какую <i>реализацию</i> подставлять под <i>интерфейс</i>:</p>
+<pre><code><span class="cmt"># «Когда кому-то нужен интерфейс репозитория — дай Doctrine-реализацию»</span>
+App\Catalog\Domain\Repository\ProductRepositoryInterface:
+    <span class="str">'@App\Catalog\Infrastructure\Doctrine\ProductRepositoryDoctrine'</span></code></pre>
+
+<h3>7.2. Messenger и три шины</h3>
+<p><b>Шина (bus)</b> — это «почтовая служба»: вы бросаете в неё сообщение, она находит нужный обработчик и доставляет. У нас три шины под три типа сообщений (<code>config/packages/messenger.yaml</code>):</p>
+<table>
+    <tr><th>Шина</th><th>Для чего</th></tr>
+    <tr><td><code>command.bus</code></td><td>Команды на изменение (создать товар)</td></tr>
+    <tr><td><code>query.bus</code></td><td>Запросы на чтение (получить товар)</td></tr>
+    <tr><td><code>event.bus</code></td><td>Доменные события (товар создан/изменён) — рассылаются асинхронно</td></tr>
+</table>
+
+<h3>7.3. Doctrine ORM: объекты ↔ таблицы</h3>
+<p><b>ORM</b> (Object-Relational Mapping) избавляет от ручного написания SQL. Вы работаете с объектом <code>Product</code>, а Doctrine знает, в какую таблицу и колонки его положить. «Карта» соответствия задана XML-файлами в <code>Infrastructure/Doctrine/Mapping</code>.</p>
+<p>Объекты-значения <code>Sku</code> и <code>Price</code> хранятся не в отдельных таблицах, а «встраиваются» в строку товара (это называется <i>embeddable</i>): цена превращается в две колонки — <code>price_amount</code> и <code>price_currency</code>.</p>
+<p>А чтобы наш <code>ProductId</code> (объект) корректно превращался в строку UUID для базы и обратно, написан <b>кастомный тип</b> <code>ProductIdType</code>:</p>
+<pre><code><span class="cmt">// объект ProductId → строка для базы</span>
+<span class="kw">public function</span> <span class="fn">convertToDatabaseValue</span>($value, $platform): ?<span class="kw">string</span>
+{
+    <span class="kw">return</span> $value <span class="kw">instanceof</span> ProductId ? $value-><span class="fn">toString</span>() : <span class="kw">null</span>;
+}</code></pre>
+
+<h3>7.4. Кэш Redis за «портом»</h3>
+<p><b>Кэш</b> — быстрая память для часто запрашиваемых данных, чтобы не дёргать базу каждый раз. <b>Redis</b> — популярное хранилище для этого. Чтобы слой Application не зависел от Redis напрямую, мы спрятали кэш за интерфейс-порт <code>ProductCacheInterface</code>; реализация <code>ProductCacheRedis</code> живёт в Infrastructure. Кэш хранит лёгкую read-модель <code>ProductView</code> на 5 минут.</p>
+
+<h3>7.5. Контроллер и проверка входных данных</h3>
+<p>Контроллер — «дверь» приложения. Symfony сам превращает входной JSON в объект <code>CreateProductRequest</code> и проверяет его (атрибут <code>#[MapRequestPayload]</code>). Если данные кривые — клиент получит ошибку ещё до того, как они дойдут до бизнес-логики.</p>
+<pre><code>#[<span class="fn">Route</span>(<span class="str">'/api/catalog/products'</span>, methods: [<span class="str">'POST'</span>])]
+<span class="kw">public function</span> <span class="fn">create</span>(#[<span class="fn">MapRequestPayload</span>] CreateProductRequest $request): JsonResponse</code></pre>
+</div>
+
+<!-- ===================== 8 ===================== -->
+<div class="section">
+<h2>8. Сквозной сценарий №1: создание товара (POST)</h2>
+<p>Проследим, что происходит, когда приходит <code>POST /api/catalog/products</code> с JSON товара. Обратите внимание, как запрос идёт <b>сверху вниз по слоям</b>.</p>
+
+<div class="flow-step"><span class="n">1</span><b>UI.</b> Symfony по адресу находит метод <code>ProductController::create</code>. JSON автоматически превращается в <code>CreateProductRequest</code> и проверяется (артикул, длина имени, цена &gt; 0, остаток ≥ 0).</div>
+<div class="flow-step"><span class="n">2</span><b>UI → Application.</b> Контроллер собирает из проверенных данных <code>CreateProductCommand</code> (упаковывая <code>Sku</code> и <code>Price</code> как объекты-значения) и бросает её в <code>command.bus</code>.</div>
+<div class="flow-step"><span class="n">3</span><b>Application.</b> Шина доставляет команду в <code>CreateProductHandler</code>. Тот создаёт <b>новый агрегат</b> <code>new Product(...)</code> — и в этот момент сам товар проверяет правила и записывает событие «товар создан».</div>
+<div class="flow-step"><span class="n">4</span><b>Application → Domain/Infrastructure.</b> Обработчик вызывает <code>repository-&gt;save($product)</code>. Вызов идёт на <i>интерфейс</i>, а выполняет его Doctrine-репозиторий — он пишет строку в PostgreSQL.</div>
+<div class="flow-step"><span class="n">5</span><b>События.</b> Обработчик забирает у товара события (<code>pullDomainEvents()</code>) и рассылает их в <code>event.bus</code> — чтобы потом сработали поиск, уведомления и т.п.</div>
+<div class="flow-step"><span class="n">6</span><b>Ответ.</b> Контроллер возвращает JSON <code>{"status":"Product created"}</code> и HTTP-код <b>201 Created</b>.</div>
+
+<pre><code><span class="cmt">// Шаги 2–3 в коде обработчика</span>
+<span class="kw">public function</span> <span class="fn">__invoke</span>(CreateProductCommand $command): <span class="kw">void</span>
+{
+    $product = <span class="kw">new</span> Product($command->sku, $command->name, $command->price,
+                          $command->stock, $command->description);
+    $this->repository-><span class="fn">save</span>($product);
+
+    <span class="kw">foreach</span> ($product-><span class="fn">pullDomainEvents</span>() <span class="kw">as</span> $event) {
+        $this->eventBus-><span class="fn">dispatch</span>($event); <span class="cmt">// разослать «товар создан»</span>
+    }
+}</code></pre>
+</div>
+
+<!-- ===================== 9 ===================== -->
+<div class="section">
+<h2>9. Сквозной сценарий №2: чтение товара (GET)</h2>
+<p>Теперь <code>GET /api/catalog/products/{id}</code>. Здесь в игру вступает кэш.</p>
+
+<div class="flow-step"><span class="n">1</span><b>UI.</b> <code>ProductController::get</code> пытается превратить строку <code>{id}</code> в объект <code>ProductId</code>. Если id невалидный — сразу ответ <b>400 Bad Request</b> (а не падение сервера).</div>
+<div class="flow-step"><span class="n">2</span><b>UI → Application.</b> Контроллер бросает <code>GetProductQuery</code> в <code>query.bus</code>; шина возвращает «конверт» (Envelope), из которого достаётся результат обработчика.</div>
+<div class="flow-step"><span class="n">3</span><b>Application + кэш.</b> <code>GetProductHandler</code> спрашивает кэш: «есть товар с таким id?». Если есть — отдаёт мгновенно. Если нет — выполняется «добытчик»: идём в репозиторий за товаром.</div>
+<div class="flow-step"><span class="n">4</span><b>Infrastructure.</b> Репозиторий достаёт <code>Product</code> из PostgreSQL. Обработчик превращает тяжёлый агрегат в лёгкую read-модель <code>ProductView</code> (только нужные для показа поля) и кладёт её в кэш на 5 минут.</div>
+<div class="flow-step"><span class="n">5</span><b>Ответ.</b> Если товар найден — <code>ProductView</code> превращается в JSON (код <b>200 OK</b>). Если нет — <b>404 Not Found</b>.</div>
+
+<pre><code><span class="kw">public function</span> <span class="fn">__invoke</span>(GetProductQuery $query): ?ProductView
+{
+    <span class="kw">return</span> $this->cache-><span class="fn">get</span>($query->id, <span class="kw">function</span> () <span class="kw">use</span> ($query): ?ProductView {
+        $product = $this->repository-><span class="fn">findById</span>($query->id);   <span class="cmt">// промах кэша → база</span>
+        <span class="kw">return</span> $product ? ProductView::<span class="fn">fromEntity</span>($product) : <span class="kw">null</span>;
+    });
+}</code></pre>
+<div class="tip callout"><b>Почему отдаём <code>ProductView</code>, а не <code>Product</code></b>Тяжёлый агрегат с правилами незачем (и небезопасно) складывать в кэш и слать наружу. Лёгкая «витрина» <code>ProductView</code> содержит только то, что нужно показать, и легко превращается в JSON.</div>
+</div>
+
+<!-- ===================== 10 ===================== -->
+<div class="section">
+<h2>10. Карта файлов проекта</h2>
+<p>Где что лежит и за что отвечает (всё внутри <code>src/Catalog/</code>):</p>
+<table>
+    <tr><th>Файл</th><th>Слой</th><th>Назначение</th></tr>
+    <tr><td><code>Domain/Entity/Product.php</code></td><td>Domain</td><td>Агрегат-товар: правила, события</td></tr>
+    <tr><td><code>Domain/ValueObject/Sku.php</code></td><td>Domain</td><td>Артикул + правило формата</td></tr>
+    <tr><td><code>Domain/ValueObject/Price.php</code></td><td>Domain</td><td>Цена + валюта, запрет отрицательной</td></tr>
+    <tr><td><code>Domain/ValueObject/ProductId.php</code></td><td>Domain</td><td>Идентификатор товара (UUID)</td></tr>
+    <tr><td><code>Domain/Event/ProductCreatedEvent.php</code></td><td>Domain</td><td>Факт «товар создан»</td></tr>
+    <tr><td><code>Domain/Event/ProductUpdatedEvent.php</code></td><td>Domain</td><td>Факт «товар изменён»</td></tr>
+    <tr><td><code>Domain/Repository/ProductRepositoryInterface.php</code></td><td>Domain</td><td>Контракт хранилища (порт)</td></tr>
+    <tr><td><code>Application/Command/CreateProductCommand.php</code></td><td>Application</td><td>Намерение «создать товар»</td></tr>
+    <tr><td><code>Application/Command/CreateProductHandler.php</code></td><td>Application</td><td>Сценарий создания</td></tr>
+    <tr><td><code>Application/Query/GetProductQuery.php</code></td><td>Application</td><td>Намерение «получить товар»</td></tr>
+    <tr><td><code>Application/Query/GetProductHandler.php</code></td><td>Application</td><td>Сценарий чтения (с кэшем)</td></tr>
+    <tr><td><code>Application/Query/ProductView.php</code></td><td>Application</td><td>Лёгкая read-модель для показа</td></tr>
+    <tr><td><code>Application/Port/ProductCacheInterface.php</code></td><td>Application</td><td>Контракт кэша (порт)</td></tr>
+    <tr><td><code>Infrastructure/Doctrine/ProductRepositoryDoctrine.php</code></td><td>Infrastructure</td><td>Хранилище через PostgreSQL</td></tr>
+    <tr><td><code>Infrastructure/Doctrine/Type/ProductIdType.php</code></td><td>Infrastructure</td><td>Перевод ProductId ↔ строка БД</td></tr>
+    <tr><td><code>Infrastructure/Cache/ProductCacheRedis.php</code></td><td>Infrastructure</td><td>Кэш через Redis</td></tr>
+    <tr><td><code>UI/Http/ProductController.php</code></td><td>UI</td><td>HTTP-эндпоинты POST и GET</td></tr>
+    <tr><td><code>UI/Http/Dto/CreateProductRequest.php</code></td><td>UI</td><td>Проверка входного JSON</td></tr>
+</table>
+</div>
+
+<!-- ===================== 11 ===================== -->
+<div class="section">
+<h2>11. Зачем всё это: выгоды подхода</h2>
+<p>Слоёв и абстракций больше, чем в «простом» коде — и это окупается, когда проект растёт:</p>
+<ul>
+    <li><b>Бизнес-правила в одном месте.</b> Хотите узнать все правила про товар — открываете <code>Product</code>, а не ищете по всему проекту.</li>
+    <li><b>Легко тестировать.</b> Ядро не зависит от базы и сети, поэтому правила проверяются быстрыми unit-тестами без запуска PostgreSQL/Redis. В проекте уже есть такие тесты (12 шт.) — они проверяют события агрегата и объекты-значения за доли секунды.</li>
+    <li><b>Технологии заменяемы.</b> Сменить базу или кэш = поменять класс в Infrastructure. Ядро и сценарии не трогаются.</li>
+    <li><b>Чтение и запись масштабируются раздельно</b> (благодаря CQRS): читаем — из кэша и быстрых моделей, пишем — со строгими проверками.</li>
+    <li><b>Понятный словарь.</b> Код говорит на языке бизнеса (Product, Sku, Price, «товар создан»), а не на языке таблиц.</li>
+</ul>
+<div class="warn callout"><b>Честно о минусах</b>DDD — это «инвестиция». Для крошечного скрипта он избыточен: больше файлов, больше понятий. Он оправдан там, где логика сложная и проект живёт долго (как раз случай растущего магазина — «highload»-приложения, судя по названию проекта).</div>
+</div>
+
+<!-- ===================== 12 ===================== -->
+<div class="section">
+<h2>12. Краткий словарь терминов</h2>
+<table>
+    <tr><th>Термин</th><th>Простыми словами</th></tr>
+    <tr><td><b>DDD</b></td><td>Подход: в центре кода — бизнес-правила, а не база/фреймворк</td></tr>
+    <tr><td><b>Bounded Context</b></td><td>Самостоятельная часть системы со своим словарём (у нас — Catalog)</td></tr>
+    <tr><td><b>Domain</b></td><td>Ядро с бизнес-правилами; ни от чего не зависит</td></tr>
+    <tr><td><b>Application</b></td><td>Сценарии «что сделать по шагам»; дирижёр</td></tr>
+    <tr><td><b>Infrastructure</b></td><td>Технические детали: база, кэш, ORM</td></tr>
+    <tr><td><b>UI</b></td><td>Приём запросов и выдача ответов (HTTP/JSON)</td></tr>
+    <tr><td><b>Entity / Сущность</b></td><td>Объект с id и историей изменений (Product)</td></tr>
+    <tr><td><b>Aggregate / Агрегат</b></td><td>Главная сущность, отвечающая за свою целостность</td></tr>
+    <tr><td><b>Value Object</b></td><td>Неизменяемый объект, описываемый только значением (Price, Sku)</td></tr>
+    <tr><td><b>Domain Event</b></td><td>Факт «что-то важное произошло» (товар создан)</td></tr>
+    <tr><td><b>Repository</b></td><td>Хранилище объектов: сохранить / найти</td></tr>
+    <tr><td><b>Port (порт)</b></td><td>Интерфейс в ядре; реализацию даёт Infrastructure</td></tr>
+    <tr><td><b>CQRS</b></td><td>Разделение операций записи (Command) и чтения (Query)</td></tr>
+    <tr><td><b>DI / Контейнер</b></td><td>Symfony сам создаёт объекты и «подаёт» их зависимостям</td></tr>
+    <tr><td><b>Messenger / Bus</b></td><td>Внутренняя «почта»: доставляет сообщения обработчикам</td></tr>
+    <tr><td><b>ORM / Doctrine</b></td><td>Переводчик «объекты ↔ таблицы базы данных»</td></tr>
+    <tr><td><b>DTO</b></td><td>Простой объект-«конверт» для передачи данных (запрос, ProductView)</td></tr>
+</table>
+<p class="small" style="margin-top:24px">Документ сгенерирован как учебное объяснение архитектуры проекта <code>higload_app/backend</code> (контекст Catalog).</p>
+</div>
+
+</body>
+</html>

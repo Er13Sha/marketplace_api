@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../vendor/symfony/dependency-injection/Loader/schema/services.schema.json
+
+# This file is the entry point to configure your own services.
+# Files in the packages/ subdirectory configure your dependencies.
+# See also https://symfony.com/doc/current/service_container/import.html
+
+# Put parameters here that don't need to change on each machine where the app is deployed
+# https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
+parameters:
+
+services:
+    # default configuration for services in *this* file
+    _defaults:
+        autowire: true      # Automatically injects dependencies in your services.
+        autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
+
+    # makes classes in src/ available to be used as services
+    # this creates a service per class whose id is the fully-qualified class name
+    App\:
+        resource: '../src/'
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones
+
+    # CQRS message handlers routed to their dedicated buses
+    App\Catalog\Application\Command\CreateProductHandler:
+        arguments:
+            $eventBus: '@event.bus'
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Catalog\Application\Query\GetProductHandler:
+        tags: [ { name: messenger.message_handler, bus: query.bus } ]
+
+    App\Catalog\Application\Query\ListProductsHandler:
+        tags: [ { name: messenger.message_handler, bus: query.bus } ]
+
+    App\Inventory\Application\Handler\ReserveStockHandler:
+        arguments:
+            $eventBus: '@event.bus'
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Inventory\Application\Handler\CommitReservationHandler:
+        arguments:
+            $eventBus: '@event.bus'
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Inventory\Application\Handler\ReleaseReservationHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Inventory\Application\Handler\GetStockHandler:
+        tags: [ { name: messenger.message_handler, bus: query.bus } ]
+
+    App\Inventory\Application\Handler\LogStockOperationHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Inventory\Application\EventListener\InitializeStockOnProductCreated:
+        tags: [ { name: messenger.message_handler, bus: event.bus } ]
+
+    # Ports -> adapters
+    App\Catalog\Domain\Repository\ProductRepositoryInterface: '@App\Catalog\Infrastructure\Doctrine\ProductRepositoryDoctrine'
+    App\Catalog\Application\Port\ProductCacheInterface: '@App\Catalog\Infrastructure\Cache\ProductCacheRedis'
+    App\Inventory\Domain\Repository\ReservationRepositoryInterface: '@App\Inventory\Infrastructure\Redis\ReservationRedisRepository'
+    App\Inventory\Domain\Repository\StockRepositoryInterface: '@App\Inventory\Infrastructure\Redis\StockRedisRepository'
+
+    Predis\Client:
+        arguments:
+            - '%env(REDIS_URL)%'
+
+    App\Catalog\Infrastructure\Cache\ProductCacheRedis:
+        arguments:
+            $cache: '@catalog.product.cache'
+
+    # Turns any thrown exception into a clean JSON response (priority -100: after the
+    # framework logs the error, before its renderer — which under Swoole/cli would leak
+    # a stack trace). Registered explicitly because #[AsEventListener] autoconfiguration
+    # does not apply in this build.
+    App\EventListener\ApiExceptionListener:
+        arguments:
+            $debug: '%kernel.debug%'
+        tags:
+            - { name: kernel.event_listener, event: kernel.exception, method: __invoke, priority: -100 }

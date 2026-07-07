@@ -1,0 +1,91 @@
+name: higload
+
+services:
+  # ---- Symfony API on PHP 8.4 + Swoole (highload) ----
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: higload-backend:latest
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      # CHANGE THIS in real deployments.
+      APP_SECRET: ${APP_SECRET:-change_me_in_production}
+      DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
+      REDIS_URL: "redis://redis:6379"
+      MESSENGER_TRANSPORT_DSN: "doctrine://default?auto_setup=0"
+      SWOOLE_HOST: "0.0.0.0"
+      SWOOLE_PORT: "8000"
+      SWOOLE_WORKER_NUM: "4"
+      # Only this container provisions schema + messenger tables.
+      RUN_MIGRATIONS: "1"
+    ports:
+      - "8000:8000"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', (int)(getenv('SWOOLE_PORT') ?: 8000)) ? 0 : 1);"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    restart: unless-stopped
+
+  # ---- Messenger worker: consumes async domain events ----
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: higload-backend:latest
+    command: ["php", "bin/console", "messenger:consume", "async", "failed", "-vv", "--time-limit=3600", "--memory-limit=192M"]
+    environment:
+      APP_ENV: prod
+      APP_DEBUG: "0"
+      APP_SECRET: ${APP_SECRET:-change_me_in_production}
+      DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
+      REDIS_URL: "redis://redis:6379"
+      MESSENGER_TRANSPORT_DSN: "doctrine://default?auto_setup=0"
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---- PostgreSQL ----
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---- Redis (cache + messenger-ready) ----
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
+  redis-data:

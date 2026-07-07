@@ -1,0 +1,13 @@
+**/.git
+**/.gitignore
+var/
+vendor/
+node_modules/
+tests/
+docs/
+*.pdf
+.env.local
+.env.*.local
+.idea/
+.vscode/
+.phpunit.result.cache
