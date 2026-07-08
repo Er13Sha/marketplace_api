@@ -1,12 +1,12 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Shared\Domain\ValueObject;
+namespace App\Inventory\Domain\ValueObject;
 
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 
-final class ProductId implements \Stringable
+final class CatalogProductId implements \Stringable
 {
     private UuidInterface $uuid;
 

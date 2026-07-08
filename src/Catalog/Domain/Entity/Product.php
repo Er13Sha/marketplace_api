@@ -15,8 +15,8 @@ class Product
     private Sku $sku;
     private string $name;
     private ?string $description;
+    private ?Category $category = null;
     private Price $price;
-    private int $stock;          // временно, пока инвентарь не выделен
     private \DateTimeImmutable $createdAt;
     private \DateTimeImmutable $updatedAt;
 
@@ -24,13 +24,17 @@ class Product
     private array $domainEvents = [];
 
     // Конструктор для нового продукта
-    public function __construct(Sku $sku, string $name, Price $price, int $stock, ?string $description = null)
+    public function __construct(Sku $sku, string $name, Price $price, int $initialStock, ?string $description = null, ?Category $category = null)
     {
+        if ($initialStock < 0) {
+            throw new \DomainException('Initial stock cannot be negative');
+        }
+
         $this->id = new ProductId();
         $this->sku = $sku;
         $this->name = $name;
+        $this->category = $category;
         $this->price = $price;
-        $this->stock = $stock;
         $this->description = $description;
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
@@ -40,7 +44,7 @@ class Product
             $this->sku->toString(),
             $this->name,
             $this->price->getAmount(),
-            $this->stock,
+            $initialStock,
             $this->createdAt
         ));
     }
@@ -50,25 +54,25 @@ class Product
     public function getSku(): Sku { return $this->sku; }
     public function getName(): string { return $this->name; }
     public function getDescription(): ?string { return $this->description; }
+    public function getCategory(): ?Category { return $this->category; }
     public function getPrice(): Price { return $this->price; }
-    public function getStock(): int { return $this->stock; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
 
     // Методы изменения (защищают инварианты)
-    public function updateDetails(string $name, ?string $description, Price $price): void
+    public function updateDetails(string $name, ?string $description, Price $price, ?Category $category = null): void
     {
         $this->name = $name;
         $this->description = $description;
+        $this->category = $category;
         $this->price = $price;
         $this->updatedAt = new \DateTimeImmutable();
         $this->recordUpdated();
     }
 
-    public function updateStock(int $newStock): void
+    public function assignCategory(?Category $category): void
     {
-        if ($newStock < 0) throw new \DomainException('Stock cannot be negative');
-        $this->stock = $newStock;
+        $this->category = $category;
         $this->updatedAt = new \DateTimeImmutable();
         $this->recordUpdated();
     }
@@ -85,7 +89,6 @@ class Product
             $this->id,
             $this->name,
             $this->price->getAmount(),
-            $this->stock,
             $this->updatedAt
         ));
     }

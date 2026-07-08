@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Query;
+namespace App\Catalog\Application\ReadModel;
 
 use App\Catalog\Domain\Entity\Product;
 
@@ -14,7 +14,7 @@ final class ProductView
         public readonly ?string $description,
         public readonly int $priceAmount,
         public readonly string $currency,
-        public readonly int $stock,
+        public readonly ?CategoryView $category,
         public readonly string $createdAt,
         public readonly string $updatedAt
     ) {}
@@ -28,7 +28,7 @@ final class ProductView
             $product->getDescription(),
             $product->getPrice()->getAmount(),
             $product->getPrice()->getCurrency(),
-            $product->getStock(),
+            $product->getCategory() ? CategoryView::fromEntity($product->getCategory()) : null,
             $product->getCreatedAt()->format(\DateTimeInterface::ATOM),
             $product->getUpdatedAt()->format(\DateTimeInterface::ATOM)
         );
@@ -44,7 +44,7 @@ final class ProductView
             'description' => $this->description,
             'price' => $this->priceAmount,
             'currency' => $this->currency,
-            'stock' => $this->stock,
+            'category' => $this->category?->toArray(),
             'created_at' => $this->createdAt,
             'updated_at' => $this->updatedAt,
         ];

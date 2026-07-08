@@ -1,8 +1,10 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Query;
+namespace App\Catalog\Application\Handler;
 
+use App\Catalog\Application\Query\ListProductsQuery;
+use App\Catalog\Application\ReadModel\ProductView;
 use App\Catalog\Domain\Repository\ProductRepositoryInterface;
 
 final class ListProductsHandler
@@ -20,6 +22,10 @@ final class ListProductsHandler
 
         if ($query->name !== null && $query->name !== '') {
             $filters['name'] = $query->name;
+        }
+
+        if ($query->categoryId !== null && $query->categoryId !== '') {
+            $filters['categoryId'] = $query->categoryId;
         }
 
         return array_map(

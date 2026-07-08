@@ -13,7 +13,7 @@ class ProductCreatedEvent
         public readonly string $sku,
         public readonly string $name,
         public readonly int $priceAmount,
-        public readonly int $stock,
+        public readonly int $initialStock,
         public readonly \DateTimeImmutable $occurredAt
     ) {}
 }

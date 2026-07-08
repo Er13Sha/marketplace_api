@@ -24,4 +24,7 @@ class CreateProductRequest
     public int $stock;
 
     public ?string $description = null;
+
+    #[Assert\Uuid]
+    public ?string $categoryId = null;
 }

@@ -53,6 +53,11 @@ class ProductRepositoryDoctrine implements ProductRepositoryInterface
                 ->setParameter('name', '%' . $filters['name'] . '%');
         }
 
+        if (!empty($filters['categoryId'])) {
+            $qb->andWhere('IDENTITY(p.category) = :categoryId')
+                ->setParameter('categoryId', $filters['categoryId']);
+        }
+
         return $qb->getQuery()->getResult();
     }
 }

@@ -19,9 +19,9 @@ inventory_controllers:
         namespace: App\Inventory\UI\Http
     type: attribute
 
-# App-level controllers (homepage / health) — outside the Catalog bounded context.
+# App-level controllers (homepage / health) — shared UI boundary.
 app_controllers:
     resource:
-        path: ../src/Controller/
-        namespace: App\Controller
+        path: ../src/Shared/UI/Http/
+        namespace: App\Shared\UI\Http
     type: attribute

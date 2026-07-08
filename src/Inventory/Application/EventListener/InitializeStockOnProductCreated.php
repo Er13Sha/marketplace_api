@@ -6,7 +6,7 @@ namespace App\Inventory\Application\EventListener;
 use App\Catalog\Domain\Event\ProductCreatedEvent;
 use App\Inventory\Domain\Repository\StockRepositoryInterface;
 use App\Inventory\Domain\ValueObject\Quantity;
-use App\Shared\Domain\ValueObject\ProductId;
+use App\Inventory\Domain\ValueObject\CatalogProductId;
 
 class InitializeStockOnProductCreated
 {
@@ -17,8 +17,8 @@ class InitializeStockOnProductCreated
     public function __invoke(ProductCreatedEvent $event): void
     {
         $this->stockRepository->initialize(
-            ProductId::fromString($event->productId->toString()),
-            new Quantity($event->stock)
+            CatalogProductId::fromString($event->productId->toString()),
+            new Quantity($event->initialStock)
         );
     }
 }

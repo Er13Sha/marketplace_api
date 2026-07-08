@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
 
-namespace App\EventListener;
+namespace App\Shared\Infrastructure\Symfony;
 
+use App\Shared\Domain\Exception\AppException;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\Messenger\Exception\HandlerFailedException;
 
 // Registered explicitly in config/services.yaml on kernel.exception at priority -100:
 // runs AFTER the framework's logKernelException (0) so errors are still logged, but
@@ -21,20 +23,28 @@ final class ApiExceptionListener
 
     public function __invoke(ExceptionEvent $event): void
     {
-        $throwable = $event->getThrowable();
+        $throwable = $this->unwrapMessengerException($event->getThrowable());
 
-        $status = $throwable instanceof HttpExceptionInterface
+        $status = $throwable instanceof AppException
+            ? $throwable->statusCode()
+            : ($throwable instanceof HttpExceptionInterface
             ? $throwable->getStatusCode()
-            : Response::HTTP_INTERNAL_SERVER_ERROR;
+            : Response::HTTP_INTERNAL_SERVER_ERROR);
 
         $headers = $throwable instanceof HttpExceptionInterface
             ? $throwable->getHeaders()
             : [];
 
         $payload = [
-            'error'  => Response::$statusTexts[$status] ?? 'Error',
+            'error'  => $throwable instanceof AppException
+                ? $throwable->getMessage()
+                : (Response::$statusTexts[$status] ?? 'Error'),
             'status' => $status,
         ];
+
+        if ($throwable instanceof AppException) {
+            $payload['code'] = $throwable->errorCode();
+        }
 
         if ($this->debug) {
             $payload['message']   = $throwable->getMessage();
@@ -46,5 +56,16 @@ final class ApiExceptionListener
 
         $event->setResponse(new JsonResponse($payload, $status, $headers));
         $event->stopPropagation();
+    }
+
+    private function unwrapMessengerException(\Throwable $throwable): \Throwable
+    {
+        if (!$throwable instanceof HandlerFailedException) {
+            return $throwable;
+        }
+
+        return $throwable->getWrappedExceptions()[0]
+            ?? $throwable->getPrevious()
+            ?? $throwable;
     }
 }

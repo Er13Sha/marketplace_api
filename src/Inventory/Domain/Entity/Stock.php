@@ -3,23 +3,31 @@ declare(strict_types=1);
 
 namespace App\Inventory\Domain\Entity;
 
-use App\Shared\Domain\ValueObject\ProductId;
+use App\Inventory\Domain\ValueObject\CatalogProductId;
 use App\Inventory\Domain\ValueObject\Quantity;
 
 class Stock
 {
-    private ProductId $productId;
+    private CatalogProductId $productId;
     private Quantity $quantity;
     private \DateTimeImmutable $updatedAt;
 
-    public function __construct(ProductId $productId, Quantity $quantity)
+    public function __construct(CatalogProductId $productId, Quantity $quantity)
     {
         $this->productId = $productId;
         $this->quantity = $quantity;
         $this->updatedAt = new \DateTimeImmutable();
     }
 
-    public function getProductId(): ProductId { return $this->productId; }
+    public static function restore(CatalogProductId $productId, Quantity $quantity, \DateTimeImmutable $updatedAt): self
+    {
+        $stock = new self($productId, $quantity);
+        $stock->updatedAt = $updatedAt;
+
+        return $stock;
+    }
+
+    public function getProductId(): CatalogProductId { return $this->productId; }
     public function getQuantity(): Quantity { return $this->quantity; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
 

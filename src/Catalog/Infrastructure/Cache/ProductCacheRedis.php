@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace App\Catalog\Infrastructure\Cache;
 
 use App\Catalog\Application\Port\ProductCacheInterface;
-use App\Catalog\Application\Query\ProductView;
+use App\Catalog\Application\ReadModel\ProductView;
 use App\Catalog\Domain\ValueObject\ProductId;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -30,6 +30,6 @@ final class ProductCacheRedis implements ProductCacheInterface
 
     private function key(ProductId $id): string
     {
-        return 'catalog_product_' . $id->toString();
+        return 'catalog_product_v4_' . $id->toString();
     }
 }

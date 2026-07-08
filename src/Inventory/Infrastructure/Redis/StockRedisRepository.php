@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace App\Inventory\Infrastructure\Redis;
 
-use App\Shared\Domain\ValueObject\ProductId;
+use App\Inventory\Domain\ValueObject\CatalogProductId;
 use App\Inventory\Domain\Entity\Stock;
 use App\Inventory\Domain\Repository\StockRepositoryInterface;
 use App\Inventory\Domain\ValueObject\Quantity;
@@ -18,12 +18,12 @@ class StockRedisRepository implements StockRepositoryInterface
         $this->redis = $redis;
     }
 
-    private function key(ProductId $productId): string
+    private function key(CatalogProductId $productId): string
     {
         return 'stock:' . $productId->toString();
     }
 
-    public function get(ProductId $productId): ?Stock
+    public function get(CatalogProductId $productId): ?Stock
     {
         $value = $this->redis->get($this->key($productId));
         if ($value === null) {
@@ -37,7 +37,7 @@ class StockRedisRepository implements StockRepositoryInterface
         $this->redis->set($this->key($stock->getProductId()), $stock->getQuantity()->getValue());
     }
 
-    public function decrease(ProductId $productId, Quantity $quantity): void
+    public function decrease(CatalogProductId $productId, Quantity $quantity): void
     {
         $lua = <<<LUA
             local key = KEYS[1]
@@ -56,12 +56,12 @@ class StockRedisRepository implements StockRepositoryInterface
         }
     }
 
-    public function increase(ProductId $productId, Quantity $quantity): void
+    public function increase(CatalogProductId $productId, Quantity $quantity): void
     {
         $this->redis->incrby($this->key($productId), $quantity->getValue());
     }
 
-    public function initialize(ProductId $productId, Quantity $initialQuantity): void
+    public function initialize(CatalogProductId $productId, Quantity $initialQuantity): void
     {
         $key = $this->key($productId);
         if (!$this->redis->exists($key)) {

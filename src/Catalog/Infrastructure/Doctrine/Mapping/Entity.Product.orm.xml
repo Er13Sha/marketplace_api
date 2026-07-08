@@ -9,8 +9,10 @@
         <embedded name="sku" class="App\Catalog\Domain\ValueObject\Sku" use-column-prefix="false"/>
         <field name="name" type="string" length="255"/>
         <field name="description" type="text" nullable="true"/>
+        <many-to-one field="category" target-entity="App\Catalog\Domain\Entity\Category">
+            <join-column name="category_id" referenced-column-name="id" nullable="true" on-delete="SET NULL"/>
+        </many-to-one>
         <embedded name="price" class="App\Catalog\Domain\ValueObject\Price" use-column-prefix="true"/>
-        <field name="stock" type="integer"/>
         <field name="createdAt" type="datetime_immutable" column="created_at"/>
         <field name="updatedAt" type="datetime_immutable" column="updated_at"/>
     </entity>

@@ -5,14 +5,17 @@ namespace App\Inventory\UI\Http;
 
 use App\Inventory\Application\Command\ReserveStockCommand;
 use App\Inventory\Application\Command\CommitReservationCommand;
+use App\Inventory\Application\Command\IncreaseStockCommand;
 use App\Inventory\Application\Command\ReleaseReservationCommand;
 use App\Inventory\Application\Query\GetStockQuery;
+use App\Inventory\Domain\Entity\Stock;
 use App\Inventory\Domain\ValueObject\Quantity;
 use App\Inventory\Domain\ValueObject\ReservationId;
 use App\Inventory\UI\Http\DTO\ReserveRequest;
 use App\Inventory\UI\Http\DTO\CommitRequest;
+use App\Inventory\UI\Http\DTO\IncreaseStockRequest;
 use App\Inventory\UI\Http\DTO\ReleaseRequest;
-use App\Shared\Domain\ValueObject\ProductId;
+use App\Inventory\Domain\ValueObject\CatalogProductId;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\Attribute\Target;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -33,7 +36,7 @@ class InventoryController extends AbstractController
     public function reserve(#[MapRequestPayload] ReserveRequest $request): JsonResponse
     {
         $command = new ReserveStockCommand(
-            ProductId::fromString($request->productId),
+            CatalogProductId::fromString($request->productId),
             new Quantity($request->quantity),
             $request->ttlSeconds
         );
@@ -84,7 +87,7 @@ class InventoryController extends AbstractController
     #[Route('/api/inventory/stock/{productId}', methods: ['GET'])]
     public function getStock(string $productId): JsonResponse
     {
-        $query = new GetStockQuery(ProductId::fromString($productId));
+        $query = new GetStockQuery(CatalogProductId::fromString($productId));
         $envelope = $this->queryBus->dispatch($query);
         $stock = $envelope->last(HandledStamp::class)?->getResult();
 
@@ -92,5 +95,31 @@ class InventoryController extends AbstractController
             return $this->json(['error' => 'Product not found in inventory'], Response::HTTP_NOT_FOUND);
         }
         return $this->json($stock);
+    }
+
+    #[Route('/api/inventory/stock/{productId}/increase', requirements: ['productId' => '[0-9a-fA-F-]{36}'], methods: ['POST'])]
+    public function increaseStock(string $productId, #[MapRequestPayload] IncreaseStockRequest $request): JsonResponse
+    {
+        $command = new IncreaseStockCommand(
+            CatalogProductId::fromString($productId),
+            new Quantity($request->quantity)
+        );
+
+        try {
+            $envelope = $this->commandBus->dispatch($command);
+            $stock = $envelope->last(HandledStamp::class)?->getResult();
+
+            if (!$stock instanceof Stock) {
+                return $this->json(['error' => 'Stock was not updated'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            return $this->json([
+                'product_id' => $stock->getProductId()->toString(),
+                'quantity' => $stock->getQuantity()->getValue(),
+                'updated_at' => $stock->getUpdatedAt()->format(\DateTimeInterface::ATOM),
+            ]);
+        } catch (\DomainException $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_CONFLICT);
+        }
     }
 }

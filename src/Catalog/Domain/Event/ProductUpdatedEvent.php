@@ -11,7 +11,6 @@ class ProductUpdatedEvent
         public readonly ProductId $productId,
         public readonly string $name,
         public readonly int $priceAmount,
-        public readonly int $stock,
         public readonly \DateTimeImmutable $occurredAt
     ) {}
 }

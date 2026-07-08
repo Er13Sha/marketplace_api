@@ -6,7 +6,7 @@ namespace App\Inventory\Infrastructure\Redis;
 use App\Inventory\Domain\Entity\Reservation;
 use App\Inventory\Domain\Repository\ReservationRepositoryInterface;
 use App\Inventory\Domain\ValueObject\ReservationId;
-use App\Shared\Domain\ValueObject\ProductId;
+use App\Inventory\Domain\ValueObject\CatalogProductId;
 use App\Inventory\Domain\ValueObject\Quantity;
 use Predis\Client;
 
@@ -64,7 +64,7 @@ class ReservationRedisRepository implements ReservationRepositoryInterface
 
         return Reservation::restore(
             $id,
-            ProductId::fromString((string) $decoded['product_id']),
+            CatalogProductId::fromString((string) $decoded['product_id']),
             new Quantity((int) $decoded['quantity']),
             (new \DateTimeImmutable())->setTimestamp((int) $decoded['expires_at']),
             (bool) $decoded['committed'],

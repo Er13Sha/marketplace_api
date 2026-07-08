@@ -160,7 +160,7 @@
     <div class="meta">
         Учебный разбор архитектуры · бэкенд <code>higload_app</code><br>
         Один ограниченный контекст (bounded context): <b>Catalog</b><br>
-        Два HTTP-эндпоинта: создать товар и получить товар по id
+        Товары, категории, фильтрация каталога и привязка категории к товару
     </div>
 </div>
 
@@ -175,7 +175,9 @@
     <li>CQRS: команды и запросы</li>
     <li>Механизмы Symfony, которые всё связывают</li>
     <li>Сквозной сценарий №1: создание товара (POST)</li>
-    <li>Сквозной сценарий №2: чтение товара (GET)</li>
+    <li>Сквозной сценарий №2: чтение и список товаров (GET)</li>
+    <li>Сквозной сценарий №3: категории и привязка товара к категории</li>
+    <li>HTTP API Catalog</li>
     <li>Карта файлов проекта</li>
     <li>Зачем всё это: выгоды подхода</li>
     <li>Краткий словарь терминов</li>
@@ -184,12 +186,18 @@
 <!-- ===================== 1 ===================== -->
 <div class="section">
 <h2>1. Что это за проект и что он умеет</h2>
-<p>Это <b>серверная часть (бэкенд)</b> интернет-магазина — а точнее, его маленький кусочек, отвечающий за <b>каталог товаров</b>. Сейчас он умеет ровно две вещи, доступные по сети как HTTP-запросы (то, что браузер или мобильное приложение отправляет на сервер):</p>
-<ul>
-    <li><b>Создать товар</b> — <code>POST /api/catalog/products</code>. Клиент присылает артикул, название, цену, остаток на складе — сервер сохраняет новый товар в базу данных.</li>
-    <li><b>Получить товар по идентификатору</b> — <code>GET /api/catalog/products/{id}</code>. Клиент присылает id — сервер возвращает данные товара в формате JSON.</li>
-</ul>
-<div class="analogy"><b>Аналогия.</b> Представьте склад. POST — это «оформить новый товар и положить его на полку». GET — это «принеси мне карточку товара с такой-то биркой». Весь проект — это правила и сотрудники, которые делают эти две операции аккуратно и без ошибок.</div>
+<p>Это <b>серверная часть (бэкенд)</b> интернет-магазина — а точнее, его ограниченный контекст, отвечающий за <b>каталог товаров</b>. Сейчас Catalog умеет работать не только с товарами, но и с категориями: создавать категории, создавать товары с необязательной категорией, получать товары списком, фильтровать их по категории и менять категорию уже существующего товара.</p>
+<table>
+    <tr><th>Возможность</th><th>HTTP-эндпоинт</th><th>Что делает</th></tr>
+    <tr><td>Создать товар</td><td><code>POST /api/catalog/products</code></td><td>Сохраняет товар, цену, остаток и необязательную ссылку на категорию.</td></tr>
+    <tr><td>Получить список товаров</td><td><code>GET /api/catalog/products</code></td><td>Возвращает товары; поддерживает <code>q</code>, <code>categoryId</code>, <code>limit</code>, <code>offset</code>.</td></tr>
+    <tr><td>Получить товар по id</td><td><code>GET /api/catalog/products/{id}</code></td><td>Возвращает одну карточку товара вместе с категорией, если она задана.</td></tr>
+    <tr><td>Привязать категорию к товару</td><td><code>PATCH /api/catalog/products/{id}/category</code></td><td>Меняет категорию существующего товара или снимает её, если передан <code>null</code>.</td></tr>
+    <tr><td>Создать категорию</td><td><code>POST /api/catalog/categories</code></td><td>Сохраняет категорию с уникальным <code>slug</code>.</td></tr>
+    <tr><td>Получить список категорий</td><td><code>GET /api/catalog/categories</code></td><td>Возвращает категории для витрины и админ-панели.</td></tr>
+    <tr><td>Получить категорию по id</td><td><code>GET /api/catalog/categories/{id}</code></td><td>Возвращает одну категорию.</td></tr>
+</table>
+<div class="analogy"><b>Аналогия.</b> Представьте склад с папками. Товар — это карточка позиции, категория — раздел каталога. Создание товара — «оформить карточку», создание категории — «завести раздел», а привязка категории — «переложить карточку в нужный раздел, не меняя сам товар».</div>
 <p>Технологии: язык <b>PHP 8.4</b>, фреймворк <b>Symfony 8.1</b>, база данных <b>PostgreSQL</b> (через библиотеку Doctrine), быстрый кэш <b>Redis</b>. Дальше разберём, что значит каждое слово и зачем оно тут.</p>
 </div>
 
@@ -232,29 +240,29 @@
 <div class="layers nobreak">
     <div class="layer l-ui">
         <b>UI (интерфейс)</b> — <span class="role">приём HTTP-запросов и формирование ответов</span><br>
-        <span class="small">Контроллер <code>ProductController</code>, DTO запроса <code>CreateProductRequest</code></span>
+        <span class="small">Контроллеры <code>ProductController</code>/<code>CategoryController</code>, DTO запросов <code>CreateProductRequest</code>, <code>CreateCategoryRequest</code>, <code>AssignProductCategoryRequest</code></span>
     </div>
     <div class="arrow-down">↓ зависит от ↓</div>
     <div class="layer l-app">
         <b>Application (приложение)</b> — <span class="role">сценарии: «что нужно сделать по шагам»</span><br>
-        <span class="small">Команды/запросы и их обработчики, порт кэша, read-модель <code>ProductView</code></span>
+        <span class="small">Команды/запросы и их обработчики, порт кэша, read-модели <code>ProductView</code> и <code>CategoryView</code></span>
     </div>
     <div class="arrow-down">↓ зависит от ↓</div>
     <div class="layer l-dom">
         <b>Domain (предметная область) — ЯДРО</b> — <span class="role">бизнес-правила, не зависит ни от чего</span><br>
-        <span class="small">Сущность <code>Product</code>, объекты-значения <code>Sku</code>/<code>Price</code>/<code>ProductId</code>, события, интерфейс репозитория</span>
+        <span class="small">Сущности <code>Product</code>/<code>Category</code>, объекты-значения <code>Sku</code>/<code>Price</code>/<code>ProductId</code>, события, интерфейсы репозиториев</span>
     </div>
     <div class="arrow-down">↑ реализует интерфейсы ядра ↑</div>
     <div class="layer l-inf">
         <b>Infrastructure (инфраструктура)</b> — <span class="role">техническая реализация: база, кэш, ORM</span><br>
-        <span class="small">Doctrine-репозиторий, Redis-кэш, кастомный тип <code>ProductIdType</code>, XML-маппинг</span>
+        <span class="small">Doctrine-репозитории, Redis-кэш, кастомный тип <code>ProductIdType</code>, XML-маппинг товаров и категорий</span>
     </div>
 </div>
 
 <table>
     <tr><th>Слой</th><th>Отвечает за</th><th>Что НЕ должен делать</th></tr>
-    <tr><td><b>Domain</b></td><td>Правила: «цена не может быть отрицательной», «остаток ≥ 0», «артикул — это 8–20 заглавных букв/цифр»</td><td>Знать про SQL, HTTP, JSON, Symfony</td></tr>
-    <tr><td><b>Application</b></td><td>Оркестровать: «возьми данные → создай товар → сохрани → разошли события»</td><td>Содержать сами бизнес-правила (они в Domain)</td></tr>
+    <tr><td><b>Domain</b></td><td>Правила: «цена не может быть отрицательной», «остаток ≥ 0», «артикул — это 8–20 заглавных букв/цифр», «slug категории имеет правильный формат»</td><td>Знать про SQL, HTTP, JSON, Symfony</td></tr>
+    <tr><td><b>Application</b></td><td>Оркестровать: «возьми данные → найди категорию → создай/измени товар → сохрани → разошли события»</td><td>Содержать сами бизнес-правила (они в Domain)</td></tr>
     <tr><td><b>Infrastructure</b></td><td>Реально писать в PostgreSQL, читать из Redis, переводить объекты в строки</td><td>Содержать бизнес-логику</td></tr>
     <tr><td><b>UI</b></td><td>Принять JSON, проверить формат, вызвать сценарий, вернуть ответ и код 201/200/400/404</td><td>Принимать бизнес-решения</td></tr>
 </table>
@@ -268,8 +276,8 @@
 <p>Большую систему делят на самостоятельные части — контексты. У нас один контекст — <b>Catalog</b> (каталог). В большом магазине были бы ещё «Корзина», «Оплата», «Доставка». Каждый контекст — свой мир со своими правилами и своим словарём. Это видно по пути <code>src/Catalog/…</code> — всё лежит внутри одного контекста.</p>
 
 <h3>5.2. Сущность и Агрегат (Entity / Aggregate): <code>Product</code></h3>
-<p><b>Сущность</b> — объект, у которого есть уникальный идентификатор и своя «жизнь» во времени (его можно менять, но это всё тот же объект). Наш <code>Product</code> — это сущность и одновременно <b>агрегат</b>: главный объект, который отвечает за свою целостность.</p>
-<p>Важно: правила живут <i>внутри</i> объекта. Нельзя положить отрицательный остаток — объект сам это запретит:</p>
+<p><b>Сущность</b> — объект, у которого есть уникальный идентификатор и своя «жизнь» во времени (его можно менять, но это всё тот же объект). Наш <code>Product</code> — это сущность и одновременно <b>агрегат</b>: главный объект, который отвечает за свою целостность. У товара есть артикул, название, описание, цена, остаток, даты создания/обновления и необязательная ссылка на <code>Category</code>.</p>
+<p>Важно: правила живут <i>внутри</i> объекта. Нельзя положить отрицательный остаток — объект сам это запретит. Изменение категории тоже проходит через метод домена, а не через прямую запись поля из контроллера:</p>
 <pre><code><span class="kw">public function</span> <span class="fn">updateStock</span>(<span class="kw">int</span> $newStock): <span class="kw">void</span>
 {
     <span class="kw">if</span> ($newStock &lt; 0) <span class="kw">throw new</span> \DomainException(<span class="str">'Stock cannot be negative'</span>);
@@ -277,9 +285,36 @@
     $this->updatedAt = <span class="kw">new</span> \DateTimeImmutable();
     $this-><span class="fn">recordUpdated</span>(); <span class="cmt">// запомнить, что товар изменился</span>
 }</code></pre>
+<pre><code><span class="kw">public function</span> <span class="fn">assignCategory</span>(?Category $category): <span class="kw">void</span>
+{
+    $this->category = $category;       <span class="cmt">// null означает «без категории»</span>
+    $this->updatedAt = <span class="kw">new</span> \DateTimeImmutable();
+    $this-><span class="fn">recordUpdated</span>();
+}</code></pre>
 <div class="tip callout"><b>Почему это хорошо</b>Невозможно «случайно» создать неправильный товар из другого места программы. Правило в одном месте — в самом объекте. Это и есть «защита инвариантов».</div>
 
-<h3>5.3. Объект-значение (Value Object): <code>Sku</code>, <code>Price</code>, <code>ProductId</code></h3>
+<h3>5.3. Сущность <code>Category</code>: раздел каталога</h3>
+<p><code>Category</code> — отдельная сущность каталога. У неё свой UUID, название, <code>slug</code>, описание и даты. Товар может ссылаться на категорию, но категория живёт самостоятельно: её можно создать до товара, а потом назначить разным товарам.</p>
+<pre><code><span class="kw">class</span> Category
+{
+    <span class="kw">public const</span> SLUG_PATTERN = <span class="str">'/^[a-z0-9]+(?:-[a-z0-9]+)*$/'</span>;
+
+    <span class="kw">private string</span> $id;
+    <span class="kw">private string</span> $name;
+    <span class="kw">private string</span> $slug;
+
+    <span class="kw">private static function</span> <span class="fn">normalizeSlug</span>(<span class="kw">string</span> $slug): <span class="kw">string</span>
+    {
+        $slug = <span class="fn">strtolower</span>(<span class="fn">trim</span>($slug));
+        <span class="kw">if</span> (!<span class="fn">preg_match</span>(self::SLUG_PATTERN, $slug)) {
+            <span class="kw">throw new</span> \InvalidArgumentException(<span class="str">'Invalid category slug'</span>);
+        }
+        <span class="kw">return</span> $slug;
+    }
+}</code></pre>
+<div class="info callout"><b>Почему категория не Value Object</b>Категория имеет собственную идентичность и жизненный цикл: её можно создать, переименовать, найти по id или slug, а товары только ссылаются на неё. Поэтому это сущность, а не объект-значение.</div>
+
+<h3>5.4. Объект-значение (Value Object): <code>Sku</code>, <code>Price</code>, <code>ProductId</code></h3>
 <p><b>Объект-значение</b> — это маленький неизменяемый объект, который описывается только своим значением и не имеет собственного «id». Деньги, артикул, идентификатор — отличные кандидаты.</p>
 <p>Зачем заворачивать цену в класс <code>Price</code>, а не хранить просто число? Чтобы <b>правила и смысл были рядом со значением</b>:</p>
 <pre><code><span class="kw">final class</span> Price
@@ -301,7 +336,7 @@
     <span class="kw">public const</span> PATTERN = <span class="str">'/^[A-Z0-9]{8,20}$/'</span>; <span class="cmt">// 8–20 заглавных букв и цифр</span>
 }</code></pre>
 
-<h3>5.4. Доменные события (Domain Events): <code>ProductCreatedEvent</code>, <code>ProductUpdatedEvent</code></h3>
+<h3>5.5. Доменные события (Domain Events): <code>ProductCreatedEvent</code>, <code>ProductUpdatedEvent</code></h3>
 <p><b>Доменное событие</b> — это факт «что-то важное произошло в бизнесе»: <i>товар создан</i>, <i>товар изменён</i>. Агрегат сам «записывает» такие факты, когда меняется. Позже их можно разослать другим частям системы (поиск, аналитика, уведомления) — и им не нужно для этого лезть внутрь нашего кода.</p>
 <pre><code><span class="cmt">// внутри Product: накапливаем события, потом их «забирают»</span>
 <span class="kw">public function</span> <span class="fn">pullDomainEvents</span>(): <span class="kw">array</span>
@@ -312,13 +347,21 @@
 }</code></pre>
 <div class="info callout"><b>Тонкость DDD, которую мы исправили</b>Раньше событие собиралось в обработчике (снаружи объекта). Это неправильно: «знание о том, что товар создан» — принадлежит самому товару. Теперь <code>Product</code> сам записывает событие в конструкторе, а обработчик лишь забирает и рассылает.</div>
 
-<h3>5.5. Репозиторий (Repository) и «порт»</h3>
-<p><b>Репозиторий</b> — это «хранилище объектов»: умеет сохранить товар и найти его по id. Хитрость DDD: ядро объявляет <i>только интерфейс</i> (что должно уметь хранилище), а <i>как именно</i> — пишет Infrastructure.</p>
+<h3>5.6. Репозиторий (Repository) и «порт»</h3>
+<p><b>Репозиторий</b> — это «хранилище объектов»: умеет сохранить товар/категорию и найти их по id. Хитрость DDD: ядро объявляет <i>только интерфейс</i> (что должно уметь хранилище), а <i>как именно</i> — пишет Infrastructure.</p>
 <pre><code><span class="cmt">// Domain: контракт (порт). Никакого SQL — только намерение.</span>
 <span class="kw">interface</span> ProductRepositoryInterface
 {
     <span class="kw">public function</span> <span class="fn">save</span>(Product $product): <span class="kw">void</span>;
     <span class="kw">public function</span> <span class="fn">findById</span>(ProductId $id): ?Product;
+    <span class="kw">public function</span> <span class="fn">findByCriteria</span>(<span class="kw">array</span> $filters, <span class="kw">int</span> $limit, <span class="kw">int</span> $offset): <span class="kw">array</span>;
+}
+
+<span class="kw">interface</span> CategoryRepositoryInterface
+{
+    <span class="kw">public function</span> <span class="fn">save</span>(Category $category): <span class="kw">void</span>;
+    <span class="kw">public function</span> <span class="fn">findById</span>(<span class="kw">string</span> $id): ?Category;
+    <span class="kw">public function</span> <span class="fn">findBySlug</span>(<span class="kw">string</span> $slug): ?Category;
 }</code></pre>
 <pre><code><span class="cmt">// Infrastructure: реализация через Doctrine (вот тут уже база)</span>
 <span class="kw">class</span> ProductRepositoryDoctrine <span class="kw">implements</span> ProductRepositoryInterface
@@ -338,9 +381,9 @@
 <p><b>CQRS</b> (Command Query Responsibility Segregation) — «разделение ответственности команд и запросов». Идея в одном предложении: <b>операции, которые меняют данные, и операции, которые только читают данные, — это разные миры, и обрабатывать их надо по-разному.</b></p>
 <table>
     <tr><th></th><th>Команда (Command)</th><th>Запрос (Query)</th></tr>
-    <tr><td>Цель</td><td>Изменить состояние («создай товар»)</td><td>Прочитать состояние («дай товар»)</td></tr>
-    <tr><td>Возвращает</td><td>Ничего (или только подтверждение)</td><td>Данные для показа</td></tr>
-    <tr><td>В проекте</td><td><code>CreateProductCommand</code> → <code>CreateProductHandler</code></td><td><code>GetProductQuery</code> → <code>GetProductHandler</code></td></tr>
+    <tr><td>Цель</td><td>Изменить состояние («создай товар», «создай категорию», «назначь категорию товару»)</td><td>Прочитать состояние («дай товар», «дай список товаров», «дай категории»)</td></tr>
+    <tr><td>Возвращает</td><td>Ничего, подтверждение или read-модель изменённого объекта</td><td>Данные для показа</td></tr>
+    <tr><td>В проекте</td><td><code>CreateProductCommand</code>, <code>CreateCategoryCommand</code>, <code>AssignProductCategoryCommand</code></td><td><code>GetProductQuery</code>, <code>ListProductsQuery</code>, <code>GetCategoryQuery</code>, <code>ListCategoriesQuery</code></td></tr>
     <tr><td>Идёт через шину</td><td><code>command.bus</code></td><td><code>query.bus</code></td></tr>
 </table>
 <p>Команда — это просто «конверт с данными» о намерении. Сама она ничего не делает; её исполняет <b>обработчик (handler)</b>:</p>
@@ -351,7 +394,16 @@
         <span class="kw">public readonly string</span> $name,
         <span class="kw">public readonly</span> Price $price,
         <span class="kw">public readonly int</span> $stock,
-        <span class="kw">public readonly</span> ?<span class="kw">string</span> $description
+        <span class="kw">public readonly</span> ?<span class="kw">string</span> $description,
+        <span class="kw">public readonly</span> ?<span class="kw">string</span> $categoryId = <span class="kw">null</span>
+    ) {}
+}</code></pre>
+<p>Для изменения категории у уже существующего товара используется отдельная команда. Это важно: создание товара и назначение категории — разные сценарии, и у каждого есть свой обработчик.</p>
+<pre><code><span class="kw">final class</span> AssignProductCategoryCommand
+{
+    <span class="kw">public function</span> <span class="fn">__construct</span>(
+        <span class="kw">public readonly</span> ProductId $productId,
+        <span class="kw">public readonly</span> ?<span class="kw">string</span> $categoryId
     ) {}
 }</code></pre>
 <div class="info callout"><b>Зачем разделять</b>Чтение часто можно ускорить (кэш, упрощённые модели данных), а запись — требует строгих проверок. Разделив их, мы оптимизируем каждую сторону отдельно. В нашем проекте чтение использует кэш Redis и лёгкую модель <code>ProductView</code>, а запись идёт через полноценный агрегат <code>Product</code> с проверками.</div>
@@ -362,25 +414,35 @@
 <h2>7. Механизмы Symfony, которые всё связывают</h2>
 
 <h3>7.1. Контейнер и внедрение зависимостей (Dependency Injection)</h3>
-<p>Объекту <code>CreateProductHandler</code> нужны репозиторий и шина событий. Он их <b>не создаёт сам</b> — он просто заявляет в конструкторе «мне нужно вот это», а Symfony-контейнер при запуске сам создаёт и «вкладывает» нужные объекты. Это и есть <b>внедрение зависимостей</b>.</p>
+<p>Обработчикам вроде <code>CreateProductHandler</code>, <code>CreateCategoryHandler</code> и <code>AssignProductCategoryHandler</code> нужны репозитории, кэш и шина событий. Они их <b>не создают сами</b> — они просто заявляют в конструкторе «мне нужно вот это», а Symfony-контейнер при запуске сам создаёт и «вкладывает» нужные объекты. Это и есть <b>внедрение зависимостей</b>.</p>
 <div class="analogy"><b>Аналогия.</b> Вы не строите автомобиль, чтобы доехать до работы, — вам его «подают». Классу подают всё, что ему нужно, готовым.</div>
 <p>В файле <code>config/services.yaml</code> мы говорим контейнеру, какую <i>реализацию</i> подставлять под <i>интерфейс</i>:</p>
 <pre><code><span class="cmt"># «Когда кому-то нужен интерфейс репозитория — дай Doctrine-реализацию»</span>
 App\Catalog\Domain\Repository\ProductRepositoryInterface:
     <span class="str">'@App\Catalog\Infrastructure\Doctrine\ProductRepositoryDoctrine'</span></code></pre>
+<pre><code>App\Catalog\Domain\Repository\CategoryRepositoryInterface:
+    <span class="str">'@App\Catalog\Infrastructure\Doctrine\CategoryRepositoryDoctrine'</span>
+
+App\Catalog\Application\Port\ProductCacheInterface:
+    <span class="str">'@App\Catalog\Infrastructure\Cache\ProductCacheRedis'</span></code></pre>
 
 <h3>7.2. Messenger и три шины</h3>
 <p><b>Шина (bus)</b> — это «почтовая служба»: вы бросаете в неё сообщение, она находит нужный обработчик и доставляет. У нас три шины под три типа сообщений (<code>config/packages/messenger.yaml</code>):</p>
 <table>
     <tr><th>Шина</th><th>Для чего</th></tr>
-    <tr><td><code>command.bus</code></td><td>Команды на изменение (создать товар)</td></tr>
-    <tr><td><code>query.bus</code></td><td>Запросы на чтение (получить товар)</td></tr>
+    <tr><td><code>command.bus</code></td><td>Команды на изменение: создать товар, создать категорию, назначить категорию товару</td></tr>
+    <tr><td><code>query.bus</code></td><td>Запросы на чтение: получить товар, список товаров, категорию, список категорий</td></tr>
     <tr><td><code>event.bus</code></td><td>Доменные события (товар создан/изменён) — рассылаются асинхронно</td></tr>
 </table>
 
 <h3>7.3. Doctrine ORM: объекты ↔ таблицы</h3>
-<p><b>ORM</b> (Object-Relational Mapping) избавляет от ручного написания SQL. Вы работаете с объектом <code>Product</code>, а Doctrine знает, в какую таблицу и колонки его положить. «Карта» соответствия задана XML-файлами в <code>Infrastructure/Doctrine/Mapping</code>.</p>
+<p><b>ORM</b> (Object-Relational Mapping) избавляет от ручного написания SQL. Вы работаете с объектами <code>Product</code> и <code>Category</code>, а Doctrine знает, в какие таблицы и колонки их положить. «Карта» соответствия задана XML-файлами в <code>Infrastructure/Doctrine/Mapping</code>.</p>
 <p>Объекты-значения <code>Sku</code> и <code>Price</code> хранятся не в отдельных таблицах, а «встраиваются» в строку товара (это называется <i>embeddable</i>): цена превращается в две колонки — <code>price_amount</code> и <code>price_currency</code>.</p>
+<p>Связь товара с категорией хранится как nullable many-to-one: в таблице <code>catalog_products</code> есть колонка <code>category_id</code>, которая ссылается на <code>catalog_categories.id</code>. Nullable означает, что товар может существовать без категории. В XML-маппинге это выглядит так:</p>
+<pre><code>&lt;many-to-one field=<span class="str">"category"</span> target-entity=<span class="str">"App\Catalog\Domain\Entity\Category"</span>&gt;
+    &lt;join-column name=<span class="str">"category_id"</span> referenced-column-name=<span class="str">"id"</span>
+                 nullable=<span class="str">"true"</span> on-delete=<span class="str">"SET NULL"</span>/&gt;
+&lt;/many-to-one&gt;</code></pre>
 <p>А чтобы наш <code>ProductId</code> (объект) корректно превращался в строку UUID для базы и обратно, написан <b>кастомный тип</b> <code>ProductIdType</code>:</p>
 <pre><code><span class="cmt">// объект ProductId → строка для базы</span>
 <span class="kw">public function</span> <span class="fn">convertToDatabaseValue</span>($value, $platform): ?<span class="kw">string</span>
@@ -390,48 +452,52 @@ App\Catalog\Domain\Repository\ProductRepositoryInterface:
 
 <h3>7.4. Кэш Redis за «портом»</h3>
 <p><b>Кэш</b> — быстрая память для часто запрашиваемых данных, чтобы не дёргать базу каждый раз. <b>Redis</b> — популярное хранилище для этого. Чтобы слой Application не зависел от Redis напрямую, мы спрятали кэш за интерфейс-порт <code>ProductCacheInterface</code>; реализация <code>ProductCacheRedis</code> живёт в Infrastructure. Кэш хранит лёгкую read-модель <code>ProductView</code> на 5 минут.</p>
+<p>Когда категория существующего товара меняется через <code>AssignProductCategoryHandler</code>, кэш конкретного товара инвалидируется: следующий <code>GET /api/catalog/products/{id}</code> уже вернёт актуальную категорию.</p>
 
 <h3>7.5. Контроллер и проверка входных данных</h3>
-<p>Контроллер — «дверь» приложения. Symfony сам превращает входной JSON в объект <code>CreateProductRequest</code> и проверяет его (атрибут <code>#[MapRequestPayload]</code>). Если данные кривые — клиент получит ошибку ещё до того, как они дойдут до бизнес-логики.</p>
+<p>Контроллер — «дверь» приложения. Symfony сам превращает входной JSON в объект запроса и проверяет его (атрибут <code>#[MapRequestPayload]</code>). Если данные кривые — клиент получит ошибку ещё до того, как они дойдут до бизнес-логики.</p>
 <pre><code>#[<span class="fn">Route</span>(<span class="str">'/api/catalog/products'</span>, methods: [<span class="str">'POST'</span>])]
 <span class="kw">public function</span> <span class="fn">create</span>(#[<span class="fn">MapRequestPayload</span>] CreateProductRequest $request): JsonResponse</code></pre>
+<p>Для разных действий используются разные DTO: <code>CreateProductRequest</code> проверяет товар, <code>CreateCategoryRequest</code> проверяет название и <code>slug</code> категории, а <code>AssignProductCategoryRequest</code> проверяет, что <code>categoryId</code> либо UUID, либо <code>null</code>.</p>
 </div>
 
 <!-- ===================== 8 ===================== -->
 <div class="section">
 <h2>8. Сквозной сценарий №1: создание товара (POST)</h2>
-<p>Проследим, что происходит, когда приходит <code>POST /api/catalog/products</code> с JSON товара. Обратите внимание, как запрос идёт <b>сверху вниз по слоям</b>.</p>
+<p>Проследим, что происходит, когда приходит <code>POST /api/catalog/products</code> с JSON товара. В запросе можно передать <code>categoryId</code>, но это поле необязательное: товар может быть создан без категории.</p>
 
-<div class="flow-step"><span class="n">1</span><b>UI.</b> Symfony по адресу находит метод <code>ProductController::create</code>. JSON автоматически превращается в <code>CreateProductRequest</code> и проверяется (артикул, длина имени, цена &gt; 0, остаток ≥ 0).</div>
-<div class="flow-step"><span class="n">2</span><b>UI → Application.</b> Контроллер собирает из проверенных данных <code>CreateProductCommand</code> (упаковывая <code>Sku</code> и <code>Price</code> как объекты-значения) и бросает её в <code>command.bus</code>.</div>
-<div class="flow-step"><span class="n">3</span><b>Application.</b> Шина доставляет команду в <code>CreateProductHandler</code>. Тот создаёт <b>новый агрегат</b> <code>new Product(...)</code> — и в этот момент сам товар проверяет правила и записывает событие «товар создан».</div>
-<div class="flow-step"><span class="n">4</span><b>Application → Domain/Infrastructure.</b> Обработчик вызывает <code>repository-&gt;save($product)</code>. Вызов идёт на <i>интерфейс</i>, а выполняет его Doctrine-репозиторий — он пишет строку в PostgreSQL.</div>
-<div class="flow-step"><span class="n">5</span><b>События.</b> Обработчик забирает у товара события (<code>pullDomainEvents()</code>) и рассылает их в <code>event.bus</code> — чтобы потом сработали поиск, уведомления и т.п.</div>
-<div class="flow-step"><span class="n">6</span><b>Ответ.</b> Контроллер возвращает JSON <code>{"status":"Product created"}</code> и HTTP-код <b>201 Created</b>.</div>
+<div class="flow-step"><span class="n">1</span><b>UI.</b> Symfony по адресу находит метод <code>ProductController::create</code>. JSON автоматически превращается в <code>CreateProductRequest</code> и проверяется (артикул, длина имени, цена &gt; 0, остаток ≥ 0, <code>categoryId</code> — UUID или <code>null</code>).</div>
+<div class="flow-step"><span class="n">2</span><b>UI → Application.</b> Контроллер собирает из проверенных данных <code>CreateProductCommand</code> и бросает её в <code>command.bus</code>.</div>
+<div class="flow-step"><span class="n">3</span><b>Application.</b> Если <code>categoryId</code> передан, <code>CreateProductHandler</code> ищет категорию через <code>CategoryRepositoryInterface</code>. Если категории нет — возвращается ошибка <b>400 Bad Request</b>.</div>
+<div class="flow-step"><span class="n">4</span><b>Domain.</b> Обработчик создаёт <b>новый агрегат</b> <code>new Product(..., $category)</code>. Товар проверяет свои правила и записывает событие «товар создан».</div>
+<div class="flow-step"><span class="n">5</span><b>Application → Infrastructure.</b> Обработчик вызывает <code>repository-&gt;save($product)</code>. Doctrine-репозиторий пишет строку в PostgreSQL.</div>
+<div class="flow-step"><span class="n">6</span><b>События.</b> Обработчик забирает у товара события (<code>pullDomainEvents()</code>) и рассылает их в <code>event.bus</code>.</div>
+<div class="flow-step"><span class="n">7</span><b>Ответ.</b> Контроллер возвращает JSON <code>{"status":"Product created"}</code> и HTTP-код <b>201 Created</b>.</div>
 
-<pre><code><span class="cmt">// Шаги 2–3 в коде обработчика</span>
-<span class="kw">public function</span> <span class="fn">__invoke</span>(CreateProductCommand $command): <span class="kw">void</span>
-{
-    $product = <span class="kw">new</span> Product($command->sku, $command->name, $command->price,
-                          $command->stock, $command->description);
-    $this->repository-><span class="fn">save</span>($product);
-
-    <span class="kw">foreach</span> ($product-><span class="fn">pullDomainEvents</span>() <span class="kw">as</span> $event) {
-        $this->eventBus-><span class="fn">dispatch</span>($event); <span class="cmt">// разослать «товар создан»</span>
+<pre><code><span class="cmt">// Фрагмент CreateProductHandler</span>
+$category = <span class="kw">null</span>;
+<span class="kw">if</span> ($command->categoryId !== <span class="kw">null</span>) {
+    $category = $this->categoryRepository-><span class="fn">findById</span>($command->categoryId);
+    <span class="kw">if</span> (!$category) {
+        <span class="kw">throw new</span> \DomainException(<span class="str">'Category not found'</span>);
     }
-}</code></pre>
+}
+
+$product = <span class="kw">new</span> Product($command->sku, $command->name, $command->price,
+                      $command->stock, $command->description, $category);
+$this->repository-><span class="fn">save</span>($product);</code></pre>
 </div>
 
 <!-- ===================== 9 ===================== -->
 <div class="section">
-<h2>9. Сквозной сценарий №2: чтение товара (GET)</h2>
-<p>Теперь <code>GET /api/catalog/products/{id}</code>. Здесь в игру вступает кэш.</p>
+<h2>9. Сквозной сценарий №2: чтение и список товаров (GET)</h2>
+<p>В Catalog есть два сценария чтения товаров: получить один товар по id и получить список товаров. Оба возвращают read-модель <code>ProductView</code>, где категория вложена как объект <code>CategoryView</code> или равна <code>null</code>.</p>
 
-<div class="flow-step"><span class="n">1</span><b>UI.</b> <code>ProductController::get</code> пытается превратить строку <code>{id}</code> в объект <code>ProductId</code>. Если id невалидный — сразу ответ <b>400 Bad Request</b> (а не падение сервера).</div>
-<div class="flow-step"><span class="n">2</span><b>UI → Application.</b> Контроллер бросает <code>GetProductQuery</code> в <code>query.bus</code>; шина возвращает «конверт» (Envelope), из которого достаётся результат обработчика.</div>
-<div class="flow-step"><span class="n">3</span><b>Application + кэш.</b> <code>GetProductHandler</code> спрашивает кэш: «есть товар с таким id?». Если есть — отдаёт мгновенно. Если нет — выполняется «добытчик»: идём в репозиторий за товаром.</div>
-<div class="flow-step"><span class="n">4</span><b>Infrastructure.</b> Репозиторий достаёт <code>Product</code> из PostgreSQL. Обработчик превращает тяжёлый агрегат в лёгкую read-модель <code>ProductView</code> (только нужные для показа поля) и кладёт её в кэш на 5 минут.</div>
-<div class="flow-step"><span class="n">5</span><b>Ответ.</b> Если товар найден — <code>ProductView</code> превращается в JSON (код <b>200 OK</b>). Если нет — <b>404 Not Found</b>.</div>
+<h3>9.1. Один товар: <code>GET /api/catalog/products/{id}</code></h3>
+<div class="flow-step"><span class="n">1</span><b>UI.</b> <code>ProductController::get</code> превращает строку <code>{id}</code> в объект <code>ProductId</code>. Если id невалидный — сразу ответ <b>400 Bad Request</b>.</div>
+<div class="flow-step"><span class="n">2</span><b>UI → Application.</b> Контроллер бросает <code>GetProductQuery</code> в <code>query.bus</code>; шина возвращает результат обработчика.</div>
+<div class="flow-step"><span class="n">3</span><b>Application + кэш.</b> <code>GetProductHandler</code> спрашивает кэш: «есть товар с таким id?». Если есть — отдаёт мгновенно. Если нет — идёт в репозиторий.</div>
+<div class="flow-step"><span class="n">4</span><b>Ответ.</b> Если товар найден — <code>ProductView</code> превращается в JSON (код <b>200 OK</b>). Если нет — <b>404 Not Found</b>.</div>
 
 <pre><code><span class="kw">public function</span> <span class="fn">__invoke</span>(GetProductQuery $query): ?ProductView
 {
@@ -440,53 +506,144 @@ App\Catalog\Domain\Repository\ProductRepositoryInterface:
         <span class="kw">return</span> $product ? ProductView::<span class="fn">fromEntity</span>($product) : <span class="kw">null</span>;
     });
 }</code></pre>
+
+<h3>9.2. Список товаров: <code>GET /api/catalog/products</code></h3>
+<p>Список товаров не использует кэш одного товара, потому что это другой read-сценарий: у него есть фильтры, лимит и смещение. Сейчас поддерживаются:</p>
+<ul>
+    <li><code>q</code> — поиск по части названия;</li>
+    <li><code>categoryId</code> — оставить только товары выбранной категории;</li>
+    <li><code>limit</code> и <code>offset</code> — простая пагинация.</li>
+</ul>
+<pre><code><span class="kw">if</span> ($query->categoryId !== <span class="kw">null</span> && $query->categoryId !== <span class="str">''</span>) {
+    $filters[<span class="str">'categoryId'</span>] = $query->categoryId;
+}
+
+<span class="kw">return</span> <span class="fn">array_map</span>(
+    <span class="kw">static fn</span> ($product): ProductView =&gt; ProductView::<span class="fn">fromEntity</span>($product),
+    $this->repository-><span class="fn">findByCriteria</span>($filters, $query->limit, $query->offset)
+);</code></pre>
 <div class="tip callout"><b>Почему отдаём <code>ProductView</code>, а не <code>Product</code></b>Тяжёлый агрегат с правилами незачем (и небезопасно) складывать в кэш и слать наружу. Лёгкая «витрина» <code>ProductView</code> содержит только то, что нужно показать, и легко превращается в JSON.</div>
 </div>
 
 <!-- ===================== 10 ===================== -->
 <div class="section">
-<h2>10. Карта файлов проекта</h2>
+<h2>10. Сквозной сценарий №3: категории и привязка товара к категории</h2>
+<p>Категории добавлены в тот же bounded context <b>Catalog</b>, потому что это часть языка каталога: товар может быть «без категории» или находиться в конкретном разделе.</p>
+
+<h3>10.1. Создание категории</h3>
+<div class="flow-step"><span class="n">1</span><b>UI.</b> <code>CategoryController::create</code> принимает JSON и валидирует <code>name</code>, <code>slug</code>, <code>description</code>.</div>
+<div class="flow-step"><span class="n">2</span><b>Application.</b> <code>CreateCategoryHandler</code> проверяет уникальность <code>slug</code> через <code>CategoryRepositoryInterface::findBySlug()</code>.</div>
+<div class="flow-step"><span class="n">3</span><b>Domain.</b> Создаётся <code>Category</code>; сама сущность нормализует имя и slug.</div>
+<div class="flow-step"><span class="n">4</span><b>Ответ.</b> Контроллер возвращает созданную категорию как <code>CategoryView</code> и HTTP-код <b>201 Created</b>.</div>
+
+<h3>10.2. Привязка категории к уже существующему товару</h3>
+<p>Для админ-панели нужен сценарий «товар уже создан, теперь выбери ему категорию». Это не должно имитироваться на frontend: выбор должен сохраняться в backend. Поэтому добавлен endpoint <code>PATCH /api/catalog/products/{id}/category</code>.</p>
+<div class="flow-step"><span class="n">1</span><b>UI.</b> <code>ProductController::assignCategory</code> проверяет id товара из URL и payload <code>{"categoryId": "uuid"}</code> или <code>{"categoryId": null}</code>.</div>
+<div class="flow-step"><span class="n">2</span><b>Application.</b> <code>AssignProductCategoryHandler</code> находит товар. Если товара нет — <b>404 Not Found</b>.</div>
+<div class="flow-step"><span class="n">3</span><b>Application.</b> Если <code>categoryId</code> не null, обработчик находит категорию. Если категории нет — <b>404 Not Found</b>.</div>
+<div class="flow-step"><span class="n">4</span><b>Domain.</b> Вызывается <code>$product-&gt;assignCategory($category)</code>. Товар обновляет <code>updatedAt</code> и записывает <code>ProductUpdatedEvent</code>.</div>
+<div class="flow-step"><span class="n">5</span><b>Infrastructure.</b> Обработчик сохраняет товар, инвалидирует Redis-кэш этого товара и рассылает доменные события.</div>
+<div class="flow-step"><span class="n">6</span><b>Ответ.</b> Возвращается обновлённый <code>ProductView</code> вместе с актуальной категорией.</div>
+
+<pre><code><span class="kw">public function</span> <span class="fn">__invoke</span>(AssignProductCategoryCommand $command): ProductView
+{
+    $product = $this->productRepository-><span class="fn">findById</span>($command->productId);
+    <span class="kw">if</span> (!$product) <span class="kw">throw new</span> \DomainException(<span class="str">'Product not found'</span>);
+
+    $category = <span class="kw">null</span>;
+    <span class="kw">if</span> ($command->categoryId !== <span class="kw">null</span> && $command->categoryId !== <span class="str">''</span>) {
+        $category = $this->categoryRepository-><span class="fn">findById</span>($command->categoryId);
+        <span class="kw">if</span> (!$category) <span class="kw">throw new</span> \DomainException(<span class="str">'Category not found'</span>);
+    }
+
+    $product-><span class="fn">assignCategory</span>($category);
+    $this->productRepository-><span class="fn">save</span>($product);
+    $this->productCache-><span class="fn">invalidate</span>($product-><span class="fn">getId</span>());
+
+    <span class="kw">return</span> ProductView::<span class="fn">fromEntity</span>($product);
+}</code></pre>
+</div>
+
+<!-- ===================== 11 ===================== -->
+<div class="section">
+<h2>11. HTTP API Catalog</h2>
+<p>Итоговая карта HTTP API, которая должна отображаться в <code>/api/doc.json</code>:</p>
+<table>
+    <tr><th>Метод</th><th>Путь</th><th>Payload / Query</th><th>Ответ</th></tr>
+    <tr><td><code>POST</code></td><td><code>/api/catalog/products</code></td><td><code>sku</code>, <code>name</code>, <code>priceAmount</code>, <code>currency</code>, <code>stock</code>, <code>description?</code>, <code>categoryId?</code></td><td><code>201 {"status":"Product created"}</code></td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/catalog/products</code></td><td><code>q?</code>, <code>categoryId?</code>, <code>limit?</code>, <code>offset?</code></td><td>Список <code>ProductView</code></td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/catalog/products/{id}</code></td><td>UUID товара</td><td>Один <code>ProductView</code> или <code>404</code></td></tr>
+    <tr><td><code>PATCH</code></td><td><code>/api/catalog/products/{id}/category</code></td><td><code>{"categoryId":"uuid"}</code> или <code>{"categoryId":null}</code></td><td>Обновлённый <code>ProductView</code></td></tr>
+    <tr><td><code>POST</code></td><td><code>/api/catalog/categories</code></td><td><code>name</code>, <code>slug</code>, <code>description?</code></td><td><code>CategoryView</code> и код <code>201</code></td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/catalog/categories</code></td><td><code>limit?</code>, <code>offset?</code></td><td>Список <code>CategoryView</code></td></tr>
+    <tr><td><code>GET</code></td><td><code>/api/catalog/categories/{id}</code></td><td>UUID категории</td><td>Один <code>CategoryView</code> или <code>404</code></td></tr>
+</table>
+<div class="info callout"><b>Связь с frontend</b>Frontend не создаёт фиктивные поля. Админ-панель берёт категории из <code>GET /api/catalog/categories</code>, создаёт товары через <code>POST /api/catalog/products</code>, а для уже существующих товаров сохраняет выбор через <code>PATCH /api/catalog/products/{id}/category</code>.</div>
+</div>
+
+<!-- ===================== 12 ===================== -->
+<div class="section">
+<h2>12. Карта файлов проекта</h2>
 <p>Где что лежит и за что отвечает (всё внутри <code>src/Catalog/</code>):</p>
 <table>
     <tr><th>Файл</th><th>Слой</th><th>Назначение</th></tr>
     <tr><td><code>Domain/Entity/Product.php</code></td><td>Domain</td><td>Агрегат-товар: правила, события</td></tr>
+    <tr><td><code>Domain/Entity/Category.php</code></td><td>Domain</td><td>Сущность категории: id, name, slug, описание, даты</td></tr>
     <tr><td><code>Domain/ValueObject/Sku.php</code></td><td>Domain</td><td>Артикул + правило формата</td></tr>
     <tr><td><code>Domain/ValueObject/Price.php</code></td><td>Domain</td><td>Цена + валюта, запрет отрицательной</td></tr>
     <tr><td><code>Domain/ValueObject/ProductId.php</code></td><td>Domain</td><td>Идентификатор товара (UUID)</td></tr>
     <tr><td><code>Domain/Event/ProductCreatedEvent.php</code></td><td>Domain</td><td>Факт «товар создан»</td></tr>
     <tr><td><code>Domain/Event/ProductUpdatedEvent.php</code></td><td>Domain</td><td>Факт «товар изменён»</td></tr>
     <tr><td><code>Domain/Repository/ProductRepositoryInterface.php</code></td><td>Domain</td><td>Контракт хранилища (порт)</td></tr>
+    <tr><td><code>Domain/Repository/CategoryRepositoryInterface.php</code></td><td>Domain</td><td>Контракт хранилища категорий</td></tr>
     <tr><td><code>Application/Command/CreateProductCommand.php</code></td><td>Application</td><td>Намерение «создать товар»</td></tr>
     <tr><td><code>Application/Command/CreateProductHandler.php</code></td><td>Application</td><td>Сценарий создания</td></tr>
+    <tr><td><code>Application/Command/CreateCategoryCommand.php</code></td><td>Application</td><td>Намерение «создать категорию»</td></tr>
+    <tr><td><code>Application/Command/CreateCategoryHandler.php</code></td><td>Application</td><td>Сценарий создания категории</td></tr>
+    <tr><td><code>Application/Command/AssignProductCategoryCommand.php</code></td><td>Application</td><td>Намерение «назначить категорию товару»</td></tr>
+    <tr><td><code>Application/Command/AssignProductCategoryHandler.php</code></td><td>Application</td><td>Сценарий привязки/отвязки категории</td></tr>
     <tr><td><code>Application/Query/GetProductQuery.php</code></td><td>Application</td><td>Намерение «получить товар»</td></tr>
     <tr><td><code>Application/Query/GetProductHandler.php</code></td><td>Application</td><td>Сценарий чтения (с кэшем)</td></tr>
+    <tr><td><code>Application/Query/ListProductsQuery.php</code></td><td>Application</td><td>Намерение «получить список товаров» с фильтрами</td></tr>
+    <tr><td><code>Application/Query/ListProductsHandler.php</code></td><td>Application</td><td>Сценарий списка товаров</td></tr>
+    <tr><td><code>Application/Query/GetCategoryQuery.php</code></td><td>Application</td><td>Намерение «получить категорию»</td></tr>
+    <tr><td><code>Application/Query/GetCategoryHandler.php</code></td><td>Application</td><td>Сценарий чтения категории</td></tr>
+    <tr><td><code>Application/Query/ListCategoriesQuery.php</code></td><td>Application</td><td>Намерение «получить список категорий»</td></tr>
+    <tr><td><code>Application/Query/ListCategoriesHandler.php</code></td><td>Application</td><td>Сценарий списка категорий</td></tr>
     <tr><td><code>Application/Query/ProductView.php</code></td><td>Application</td><td>Лёгкая read-модель для показа</td></tr>
+    <tr><td><code>Application/Query/CategoryView.php</code></td><td>Application</td><td>Лёгкая read-модель категории</td></tr>
     <tr><td><code>Application/Port/ProductCacheInterface.php</code></td><td>Application</td><td>Контракт кэша (порт)</td></tr>
     <tr><td><code>Infrastructure/Doctrine/ProductRepositoryDoctrine.php</code></td><td>Infrastructure</td><td>Хранилище через PostgreSQL</td></tr>
+    <tr><td><code>Infrastructure/Doctrine/CategoryRepositoryDoctrine.php</code></td><td>Infrastructure</td><td>Хранилище категорий через PostgreSQL</td></tr>
+    <tr><td><code>Infrastructure/Doctrine/Mapping/Entity.Product.orm.xml</code></td><td>Infrastructure</td><td>Маппинг товара, включая <code>category_id</code></td></tr>
+    <tr><td><code>Infrastructure/Doctrine/Mapping/Entity.Category.orm.xml</code></td><td>Infrastructure</td><td>Маппинг таблицы <code>catalog_categories</code></td></tr>
     <tr><td><code>Infrastructure/Doctrine/Type/ProductIdType.php</code></td><td>Infrastructure</td><td>Перевод ProductId ↔ строка БД</td></tr>
     <tr><td><code>Infrastructure/Cache/ProductCacheRedis.php</code></td><td>Infrastructure</td><td>Кэш через Redis</td></tr>
-    <tr><td><code>UI/Http/ProductController.php</code></td><td>UI</td><td>HTTP-эндпоинты POST и GET</td></tr>
-    <tr><td><code>UI/Http/Dto/CreateProductRequest.php</code></td><td>UI</td><td>Проверка входного JSON</td></tr>
+    <tr><td><code>UI/Http/ProductController.php</code></td><td>UI</td><td>HTTP-эндпоинты товаров: create/list/get/assign category</td></tr>
+    <tr><td><code>UI/Http/CategoryController.php</code></td><td>UI</td><td>HTTP-эндпоинты категорий: create/list/get</td></tr>
+    <tr><td><code>UI/Http/Dto/CreateProductRequest.php</code></td><td>UI</td><td>Проверка входного JSON товара</td></tr>
+    <tr><td><code>UI/Http/Dto/CreateCategoryRequest.php</code></td><td>UI</td><td>Проверка входного JSON категории</td></tr>
+    <tr><td><code>UI/Http/Dto/AssignProductCategoryRequest.php</code></td><td>UI</td><td>Проверка payload для привязки категории</td></tr>
 </table>
 </div>
 
-<!-- ===================== 11 ===================== -->
+<!-- ===================== 13 ===================== -->
 <div class="section">
-<h2>11. Зачем всё это: выгоды подхода</h2>
+<h2>13. Зачем всё это: выгоды подхода</h2>
 <p>Слоёв и абстракций больше, чем в «простом» коде — и это окупается, когда проект растёт:</p>
 <ul>
-    <li><b>Бизнес-правила в одном месте.</b> Хотите узнать все правила про товар — открываете <code>Product</code>, а не ищете по всему проекту.</li>
+    <li><b>Бизнес-правила в одном месте.</b> Хотите узнать все правила про товар — открываете <code>Product</code>; правила категории — <code>Category</code>.</li>
     <li><b>Легко тестировать.</b> Ядро не зависит от базы и сети, поэтому правила проверяются быстрыми unit-тестами без запуска PostgreSQL/Redis. В проекте уже есть такие тесты (12 шт.) — они проверяют события агрегата и объекты-значения за доли секунды.</li>
     <li><b>Технологии заменяемы.</b> Сменить базу или кэш = поменять класс в Infrastructure. Ядро и сценарии не трогаются.</li>
     <li><b>Чтение и запись масштабируются раздельно</b> (благодаря CQRS): читаем — из кэша и быстрых моделей, пишем — со строгими проверками.</li>
-    <li><b>Понятный словарь.</b> Код говорит на языке бизнеса (Product, Sku, Price, «товар создан»), а не на языке таблиц.</li>
+    <li><b>Понятный словарь.</b> Код говорит на языке бизнеса (Product, Category, Sku, Price, «товар создан», «категория назначена»), а не на языке таблиц.</li>
 </ul>
 <div class="warn callout"><b>Честно о минусах</b>DDD — это «инвестиция». Для крошечного скрипта он избыточен: больше файлов, больше понятий. Он оправдан там, где логика сложная и проект живёт долго (как раз случай растущего магазина — «highload»-приложения, судя по названию проекта).</div>
 </div>
 
-<!-- ===================== 12 ===================== -->
+<!-- ===================== 14 ===================== -->
 <div class="section">
-<h2>12. Краткий словарь терминов</h2>
+<h2>14. Краткий словарь терминов</h2>
 <table>
     <tr><th>Термин</th><th>Простыми словами</th></tr>
     <tr><td><b>DDD</b></td><td>Подход: в центре кода — бизнес-правила, а не база/фреймворк</td></tr>
@@ -495,7 +652,10 @@ App\Catalog\Domain\Repository\ProductRepositoryInterface:
     <tr><td><b>Application</b></td><td>Сценарии «что сделать по шагам»; дирижёр</td></tr>
     <tr><td><b>Infrastructure</b></td><td>Технические детали: база, кэш, ORM</td></tr>
     <tr><td><b>UI</b></td><td>Приём запросов и выдача ответов (HTTP/JSON)</td></tr>
-    <tr><td><b>Entity / Сущность</b></td><td>Объект с id и историей изменений (Product)</td></tr>
+    <tr><td><b>Entity / Сущность</b></td><td>Объект с id и историей изменений (Product, Category)</td></tr>
+    <tr><td><b>Category</b></td><td>Раздел каталога; товар может быть привязан к одной категории или быть без категории</td></tr>
+    <tr><td><b>Slug</b></td><td>Короткий машинный идентификатор категории в URL/API, например <code>electronics</code></td></tr>
+    <tr><td><b>Nullable relation</b></td><td>Связь, которая может отсутствовать; у товара <code>category_id</code> может быть <code>null</code></td></tr>
     <tr><td><b>Aggregate / Агрегат</b></td><td>Главная сущность, отвечающая за свою целостность</td></tr>
     <tr><td><b>Value Object</b></td><td>Неизменяемый объект, описываемый только значением (Price, Sku)</td></tr>
     <tr><td><b>Domain Event</b></td><td>Факт «что-то важное произошло» (товар создан)</td></tr>
@@ -505,7 +665,8 @@ App\Catalog\Domain\Repository\ProductRepositoryInterface:
     <tr><td><b>DI / Контейнер</b></td><td>Symfony сам создаёт объекты и «подаёт» их зависимостям</td></tr>
     <tr><td><b>Messenger / Bus</b></td><td>Внутренняя «почта»: доставляет сообщения обработчикам</td></tr>
     <tr><td><b>ORM / Doctrine</b></td><td>Переводчик «объекты ↔ таблицы базы данных»</td></tr>
-    <tr><td><b>DTO</b></td><td>Простой объект-«конверт» для передачи данных (запрос, ProductView)</td></tr>
+    <tr><td><b>Read model / View</b></td><td>Упрощённая модель для ответа API (<code>ProductView</code>, <code>CategoryView</code>)</td></tr>
+    <tr><td><b>DTO</b></td><td>Простой объект-«конверт» для передачи данных (<code>CreateProductRequest</code>, <code>ProductView</code>)</td></tr>
 </table>
 <p class="small" style="margin-top:24px">Документ сгенерирован как учебное объяснение архитектуры проекта <code>higload_app/backend</code> (контекст Catalog).</p>
 </div>

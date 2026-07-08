@@ -1,9 +1,11 @@
 <?php
 declare(strict_types=1);
 
-namespace App\Catalog\Application\Query;
+namespace App\Catalog\Application\Handler;
 
 use App\Catalog\Application\Port\ProductCacheInterface;
+use App\Catalog\Application\Query\GetProductQuery;
+use App\Catalog\Application\ReadModel\ProductView;
 use App\Catalog\Domain\Repository\ProductRepositoryInterface;
 
 final class GetProductHandler

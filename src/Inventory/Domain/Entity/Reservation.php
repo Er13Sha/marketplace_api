@@ -4,19 +4,19 @@ declare(strict_types=1);
 namespace App\Inventory\Domain\Entity;
 
 use App\Inventory\Domain\ValueObject\ReservationId;
-use App\Shared\Domain\ValueObject\ProductId;
+use App\Inventory\Domain\ValueObject\CatalogProductId;
 use App\Inventory\Domain\ValueObject\Quantity;
 
 class Reservation
 {
     private ReservationId $id;
-    private ProductId $productId;
+    private CatalogProductId $productId;
     private Quantity $quantity;
     private \DateTimeImmutable $expiresAt;
     private bool $committed = false;
     private bool $released = false;
 
-    public function __construct(ProductId $productId, Quantity $quantity, \DateInterval $ttl)
+    public function __construct(CatalogProductId $productId, Quantity $quantity, \DateInterval $ttl)
     {
         $this->id = new ReservationId();
         $this->productId = $productId;
@@ -26,7 +26,7 @@ class Reservation
 
     public static function restore(
         ReservationId $id,
-        ProductId $productId,
+        CatalogProductId $productId,
         Quantity $quantity,
         \DateTimeImmutable $expiresAt,
         bool $committed,
@@ -42,7 +42,7 @@ class Reservation
     }
 
     public function getId(): ReservationId { return $this->id; }
-    public function getProductId(): ProductId { return $this->productId; }
+    public function getProductId(): CatalogProductId { return $this->productId; }
     public function getQuantity(): Quantity { return $this->quantity; }
     public function getExpiresAt(): \DateTimeImmutable { return $this->expiresAt; }
     public function isExpired(): bool { return new \DateTimeImmutable() > $this->expiresAt; }

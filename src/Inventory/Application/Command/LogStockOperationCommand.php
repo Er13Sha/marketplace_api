@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 namespace App\Inventory\Application\Command;
 
-use App\Shared\Domain\ValueObject\ProductId;
+use App\Inventory\Domain\ValueObject\CatalogProductId;
 
 class LogStockOperationCommand
 {
     public function __construct(
-        public readonly ProductId $productId,
+        public readonly CatalogProductId $productId,
         public readonly int $quantity,
         public readonly string $operation,
         public readonly ?string $reservationId = null,

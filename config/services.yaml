@@ -23,15 +23,29 @@ services:
     # please note that last definitions always *replace* previous ones
 
     # CQRS message handlers routed to their dedicated buses
-    App\Catalog\Application\Command\CreateProductHandler:
+    App\Catalog\Application\Handler\CreateProductHandler:
         arguments:
             $eventBus: '@event.bus'
         tags: [ { name: messenger.message_handler, bus: command.bus } ]
 
-    App\Catalog\Application\Query\GetProductHandler:
+    App\Catalog\Application\Handler\CreateCategoryHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Catalog\Application\Handler\AssignProductCategoryHandler:
+        arguments:
+            $eventBus: '@event.bus'
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Catalog\Application\Handler\GetProductHandler:
         tags: [ { name: messenger.message_handler, bus: query.bus } ]
 
-    App\Catalog\Application\Query\ListProductsHandler:
+    App\Catalog\Application\Handler\ListProductsHandler:
+        tags: [ { name: messenger.message_handler, bus: query.bus } ]
+
+    App\Catalog\Application\Handler\GetCategoryHandler:
+        tags: [ { name: messenger.message_handler, bus: query.bus } ]
+
+    App\Catalog\Application\Handler\ListCategoriesHandler:
         tags: [ { name: messenger.message_handler, bus: query.bus } ]
 
     App\Inventory\Application\Handler\ReserveStockHandler:
@@ -47,20 +61,34 @@ services:
     App\Inventory\Application\Handler\ReleaseReservationHandler:
         tags: [ { name: messenger.message_handler, bus: command.bus } ]
 
+    App\Inventory\Application\Handler\IncreaseStockHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
     App\Inventory\Application\Handler\GetStockHandler:
         tags: [ { name: messenger.message_handler, bus: query.bus } ]
 
     App\Inventory\Application\Handler\LogStockOperationHandler:
         tags: [ { name: messenger.message_handler, bus: command.bus } ]
 
+    App\Inventory\Application\Handler\LogStockReservedEventHandler:
+        tags:
+            - { name: messenger.message_handler, bus: event.bus }
+            - { name: messenger.message_handler, bus: command.bus }
+
+    App\Inventory\Application\Handler\LogStockCommittedEventHandler:
+        tags:
+            - { name: messenger.message_handler, bus: event.bus }
+            - { name: messenger.message_handler, bus: command.bus }
+
     App\Inventory\Application\EventListener\InitializeStockOnProductCreated:
         tags: [ { name: messenger.message_handler, bus: event.bus } ]
 
     # Ports -> adapters
     App\Catalog\Domain\Repository\ProductRepositoryInterface: '@App\Catalog\Infrastructure\Doctrine\ProductRepositoryDoctrine'
+    App\Catalog\Domain\Repository\CategoryRepositoryInterface: '@App\Catalog\Infrastructure\Doctrine\CategoryRepositoryDoctrine'
     App\Catalog\Application\Port\ProductCacheInterface: '@App\Catalog\Infrastructure\Cache\ProductCacheRedis'
-    App\Inventory\Domain\Repository\ReservationRepositoryInterface: '@App\Inventory\Infrastructure\Redis\ReservationRedisRepository'
-    App\Inventory\Domain\Repository\StockRepositoryInterface: '@App\Inventory\Infrastructure\Redis\StockRedisRepository'
+    App\Inventory\Domain\Repository\ReservationRepositoryInterface: '@App\Inventory\Infrastructure\Doctrine\Repository\ReservationDoctrineRepository'
+    App\Inventory\Domain\Repository\StockRepositoryInterface: '@App\Inventory\Infrastructure\Doctrine\Repository\StockDoctrineRepository'
 
     Predis\Client:
         arguments:
@@ -74,7 +102,7 @@ services:
     # framework logs the error, before its renderer — which under Swoole/cli would leak
     # a stack trace). Registered explicitly because #[AsEventListener] autoconfiguration
     # does not apply in this build.
-    App\EventListener\ApiExceptionListener:
+    App\Shared\Infrastructure\Symfony\ApiExceptionListener:
         arguments:
             $debug: '%kernel.debug%'
         tags:
