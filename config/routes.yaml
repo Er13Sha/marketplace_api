@@ -19,6 +19,24 @@ inventory_controllers:
         namespace: App\Inventory\UI\Http
     type: attribute
 
+auth_controllers:
+    resource:
+        path: ../src/Auth/UI/Http/
+        namespace: App\Auth\UI\Http
+    type: attribute
+
+cart_controllers:
+    resource:
+        path: ../src/Cart/UI/Http/
+        namespace: App\Cart\UI\Http
+    type: attribute
+
+order_controllers:
+    resource:
+        path: ../src/Order/UI/Http/
+        namespace: App\Order\UI\Http
+    type: attribute
+
 # App-level controllers (homepage / health) — shared UI boundary.
 app_controllers:
     resource:

@@ -25,6 +25,27 @@ doctrine:
                 prefix: 'App\Catalog\Domain'
                 alias: Catalog
 
+            auth:
+                type: xml
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Auth/Infrastructure/Doctrine/Mapping'
+                prefix: 'App\Auth\Domain'
+                alias: Auth
+
+            cart:
+                type: xml
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Cart/Infrastructure/Doctrine/Mapping'
+                prefix: 'App\Cart\Domain'
+                alias: Cart
+
+            order:
+                type: xml
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Order/Infrastructure/Doctrine/Mapping'
+                prefix: 'App\Order\Domain'
+                alias: Order
+
             inventory:
                 type: attribute
                 is_bundle: false

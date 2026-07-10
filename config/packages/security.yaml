@@ -1,20 +1,31 @@
 security:
     # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
     password_hashers:
+        App\Auth\Domain\Entity\User: 'auto'
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
-        users_in_memory: { memory: null }
+        app_user_provider:
+            id: App\Auth\Infrastructure\Security\EmailUserProvider
 
     firewalls:
         dev:
             # Ensure dev tools and static assets are always allowed
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
-        main:
+        api:
+            pattern: ^/api
             lazy: true
-            provider: users_in_memory
+            provider: app_user_provider
+            entry_point: App\Auth\Infrastructure\Security\JsonAuthenticationEntryPoint
+            access_denied_handler: App\Auth\Infrastructure\Security\JsonAccessDeniedHandler
+            json_login:
+                check_path: /api/auth/login
+                username_path: email
+                password_path: password
+                success_handler: App\Auth\Infrastructure\Security\JsonLoginSuccessHandler
+                failure_handler: App\Auth\Infrastructure\Security\JsonLoginFailureHandler
 
             # Activate different ways to authenticate:
             # https://symfony.com/doc/current/security.html#the-firewall
@@ -24,14 +35,41 @@ security:
 
     # Note: Only the *first* matching rule is applied
     access_control:
-        # - { path: ^/admin, roles: ROLE_ADMIN }
-        # - { path: ^/profile, roles: ROLE_USER }
+        - { path: ^/api/auth/register$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/api/doc, roles: PUBLIC_ACCESS }
+        - { path: ^/api/catalog/products$, methods: [GET], roles: PUBLIC_ACCESS }
+        -
+            path: ^/api/catalog/products/[0-9a-fA-F-]{36}$
+            methods: [GET]
+            roles: PUBLIC_ACCESS
+        - { path: ^/api/catalog/categories, methods: [GET], roles: PUBLIC_ACCESS }
+        -
+            path: ^/api/inventory/stock/[0-9a-fA-F-]{36}$
+            methods: [GET]
+            roles: PUBLIC_ACCESS
+        - { path: ^/api/catalog/products$, methods: [POST], roles: ROLE_ADMIN }
+        -
+            path: ^/api/catalog/products/[0-9a-fA-F-]{36}/category$
+            methods: [PATCH]
+            roles: ROLE_ADMIN
+        - { path: ^/api/catalog/categories$, methods: [POST], roles: ROLE_ADMIN }
+        -
+            path: ^/api/inventory/stock/[0-9a-fA-F-]{36}/increase$
+            methods: [POST]
+            roles: ROLE_ADMIN
+        - { path: ^/api, roles: ROLE_USER }
 
 when@test:
     security:
         password_hashers:
             # Password hashers are resource-intensive by design to ensure security.
             # In tests, it's safe to reduce their cost to improve performance.
+            App\Auth\Domain\Entity\User:
+                algorithm: auto
+                cost: 4 # Lowest possible value for bcrypt
+                time_cost: 3 # Lowest possible value for argon
+                memory_cost: 10 # Lowest possible value for argon
             Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
                 algorithm: auto
                 cost: 4 # Lowest possible value for bcrypt

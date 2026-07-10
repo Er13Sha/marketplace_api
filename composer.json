@@ -90,7 +90,8 @@
         ],
         "post-update-cmd": [
             "@auto-scripts"
-        ]
+        ],
+        "test": "php bin/phpunit"
     },
     "conflict": {
         "symfony/symfony": "*"

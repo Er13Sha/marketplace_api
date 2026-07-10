@@ -30,7 +30,7 @@ final class ProductTest extends TestCase
         self::assertSame('ABC12345', $event->sku);
         self::assertSame('Widget', $event->name);
         self::assertSame(1000, $event->priceAmount);
-        self::assertSame(7, $event->stock);
+        self::assertSame(7, $event->initialStock);
         self::assertEquals($product->getCreatedAt(), $event->occurredAt);
     }
 
@@ -43,26 +43,10 @@ final class ProductTest extends TestCase
         self::assertSame([], $product->pullDomainEvents());
     }
 
-    public function testUpdateStockRecordsProductUpdatedEvent(): void
+    public function testConstructorRejectsNegativeInitialStock(): void
     {
-        $product = $this->makeProduct();
-        $product->pullDomainEvents();
-
-        $product->updateStock(42);
-
-        $events = $product->pullDomainEvents();
-        self::assertCount(1, $events);
-        self::assertInstanceOf(ProductUpdatedEvent::class, $events[0]);
-        self::assertSame(42, $events[0]->stock);
-        self::assertSame(42, $product->getStock());
-    }
-
-    public function testUpdateStockRejectsNegativeStock(): void
-    {
-        $product = $this->makeProduct();
-
         $this->expectException(\DomainException::class);
-        $product->updateStock(-1);
+        new Product(new Sku('ABC12345'), 'Widget', new Price(1000, 'KZT'), -1);
     }
 
     public function testUpdateDetailsRecordsProductUpdatedEvent(): void

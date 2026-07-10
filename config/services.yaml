@@ -83,9 +83,41 @@ services:
     App\Inventory\Application\EventListener\InitializeStockOnProductCreated:
         tags: [ { name: messenger.message_handler, bus: event.bus } ]
 
+    App\Auth\Application\Handler\RegisterUserHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Cart\Application\Handler\GetCartHandler:
+        tags: [ { name: messenger.message_handler, bus: query.bus } ]
+
+    App\Cart\Application\Handler\AddCartItemHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Cart\Application\Handler\UpdateCartItemHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Cart\Application\Handler\RemoveCartItemHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Cart\Application\Handler\ClearCartHandler:
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Order\Application\Handler\CheckoutOrderHandler:
+        arguments:
+            $eventBus: '@event.bus'
+        tags: [ { name: messenger.message_handler, bus: command.bus } ]
+
+    App\Order\Application\Handler\GetOrderHandler:
+        tags: [ { name: messenger.message_handler, bus: query.bus } ]
+
+    App\Order\Application\Handler\ListOrdersHandler:
+        tags: [ { name: messenger.message_handler, bus: query.bus } ]
+
     # Ports -> adapters
+    App\Auth\Domain\Repository\UserRepositoryInterface: '@App\Auth\Infrastructure\Doctrine\UserRepositoryDoctrine'
+    App\Cart\Domain\Repository\CartRepositoryInterface: '@App\Cart\Infrastructure\Doctrine\CartRepositoryDoctrine'
     App\Catalog\Domain\Repository\ProductRepositoryInterface: '@App\Catalog\Infrastructure\Doctrine\ProductRepositoryDoctrine'
     App\Catalog\Domain\Repository\CategoryRepositoryInterface: '@App\Catalog\Infrastructure\Doctrine\CategoryRepositoryDoctrine'
+    App\Order\Domain\Repository\OrderRepositoryInterface: '@App\Order\Infrastructure\Doctrine\OrderRepositoryDoctrine'
     App\Catalog\Application\Port\ProductCacheInterface: '@App\Catalog\Infrastructure\Cache\ProductCacheRedis'
     App\Inventory\Domain\Repository\ReservationRepositoryInterface: '@App\Inventory\Infrastructure\Doctrine\Repository\ReservationDoctrineRepository'
     App\Inventory\Domain\Repository\StockRepositoryInterface: '@App\Inventory\Infrastructure\Doctrine\Repository\StockDoctrineRepository'
