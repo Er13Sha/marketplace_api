@@ -14,6 +14,7 @@ class CreateProductCommand
         public readonly Price $price,
         public readonly int $initialStock,
         public readonly ?string $description,
-        public readonly ?string $categoryId = null
+        public readonly ?string $categoryId = null,
+        public readonly ?string $sellerId = null
     ) {}
 }

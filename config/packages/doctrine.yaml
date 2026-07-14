@@ -32,6 +32,13 @@ doctrine:
                 prefix: 'App\Auth\Domain'
                 alias: Auth
 
+            seller:
+                type: xml
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Seller/Infrastructure/Doctrine/Mapping'
+                prefix: 'App\Seller\Domain'
+                alias: Seller
+
             cart:
                 type: xml
                 is_bundle: false

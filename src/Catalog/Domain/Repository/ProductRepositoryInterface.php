@@ -18,4 +18,6 @@ interface ProductRepositoryInterface
     public function delete(ProductId $id): void;
 
     public function findByCriteria(array $filters, int $limit, int $offset): array;
+
+    public function countByCriteria(array $filters): int;
 }

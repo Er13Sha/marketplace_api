@@ -8,6 +8,7 @@ final class ListProductsQuery
     public function __construct(
         public readonly ?string $name,
         public readonly ?string $categoryId,
+        public readonly ?string $sellerId,
         public readonly int $limit,
         public readonly int $offset
     ) {}

@@ -117,6 +117,7 @@ services:
     App\Cart\Domain\Repository\CartRepositoryInterface: '@App\Cart\Infrastructure\Doctrine\CartRepositoryDoctrine'
     App\Catalog\Domain\Repository\ProductRepositoryInterface: '@App\Catalog\Infrastructure\Doctrine\ProductRepositoryDoctrine'
     App\Catalog\Domain\Repository\CategoryRepositoryInterface: '@App\Catalog\Infrastructure\Doctrine\CategoryRepositoryDoctrine'
+    App\Seller\Domain\Repository\SellerRepositoryInterface: '@App\Seller\Infrastructure\Doctrine\SellerRepositoryDoctrine'
     App\Order\Domain\Repository\OrderRepositoryInterface: '@App\Order\Infrastructure\Doctrine\OrderRepositoryDoctrine'
     App\Catalog\Application\Port\ProductCacheInterface: '@App\Catalog\Infrastructure\Cache\ProductCacheRedis'
     App\Inventory\Domain\Repository\ReservationRepositoryInterface: '@App\Inventory\Infrastructure\Doctrine\Repository\ReservationDoctrineRepository'

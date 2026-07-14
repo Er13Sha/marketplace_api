@@ -7,12 +7,16 @@ use App\Catalog\Application\Command\AssignProductCategoryCommand;
 use App\Catalog\Application\Command\CreateProductCommand;
 use App\Catalog\Application\Query\GetProductQuery;
 use App\Catalog\Application\Query\ListProductsQuery;
+use App\Catalog\Application\ReadModel\ProductListView;
 use App\Catalog\Application\ReadModel\ProductView;
 use App\Catalog\Domain\ValueObject\ProductId;
 use App\Catalog\Domain\ValueObject\Sku;
 use App\Catalog\Domain\ValueObject\Price;
 use App\Catalog\UI\Http\Dto\AssignProductCategoryRequest;
 use App\Catalog\UI\Http\Dto\CreateProductRequest;
+use App\Auth\Domain\Entity\User;
+use App\Seller\Domain\Exception\SellerProfileRequiredException;
+use App\Seller\Domain\Repository\SellerRepositoryInterface;
 use App\Shared\Domain\Exception\AppException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -29,19 +33,34 @@ class ProductController extends AbstractController
     public function __construct(
         // command.bus is the default bus → resolved via plain MessageBusInterface.
         private MessageBusInterface $commandBus,
-        #[Target('query.bus')] private MessageBusInterface $queryBus
+        #[Target('query.bus')] private MessageBusInterface $queryBus,
+        private SellerRepositoryInterface $sellers
     ) {}
 
     #[Route('/api/catalog/products', methods: ['POST'])]
     public function create(#[MapRequestPayload] CreateProductRequest $request): JsonResponse
     {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json([
+                'error' => 'Authentication required.',
+                'code' => 'authentication_required',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $seller = $this->sellers->findByOwnerUserId($user->getId());
+        if ((!$seller || !$seller->isActive()) && !$user->hasRole(User::ROLE_ADMIN)) {
+            throw new SellerProfileRequiredException();
+        }
+
         $command = new CreateProductCommand(
             new Sku($request->sku),
             $request->name,
             new Price($request->priceAmount, $request->currency),
             $request->stock,
             $request->description,
-            $request->categoryId
+            $request->categoryId,
+            $seller?->getId()
         );
 
         try {
@@ -69,12 +88,14 @@ class ProductController extends AbstractController
         $envelope = $this->queryBus->dispatch(new ListProductsQuery(
             $name !== '' ? $name : null,
             $categoryId !== '' ? $categoryId : null,
+            null,
             $limit,
             $offset
         ));
 
-        /** @var ProductView[] $views */
-        $views = $envelope->last(HandledStamp::class)?->getResult() ?? [];
+        /** @var ProductListView|null $result */
+        $result = $envelope->last(HandledStamp::class)?->getResult();
+        $views = $result?->items ?? [];
 
         return $this->json([
             'items' => array_map(
@@ -82,6 +103,51 @@ class ProductController extends AbstractController
                 $views
             ),
             'count' => count($views),
+            'total' => $result?->total ?? count($views),
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
+    }
+
+    #[Route('/api/catalog/products/mine', methods: ['GET'])]
+    public function listMine(Request $request): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json([
+                'error' => 'Authentication required.',
+                'code' => 'authentication_required',
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $name = trim((string) $request->query->get('q', ''));
+        $categoryId = trim((string) $request->query->get('categoryId', ''));
+        $limit = max(1, min(100, $request->query->getInt('limit', 50)));
+        $offset = max(0, $request->query->getInt('offset', 0));
+        $seller = $this->sellers->findByOwnerUserId($user->getId());
+        if (!$seller || !$seller->isActive()) {
+            throw new SellerProfileRequiredException();
+        }
+
+        $envelope = $this->queryBus->dispatch(new ListProductsQuery(
+            $name !== '' ? $name : null,
+            $categoryId !== '' ? $categoryId : null,
+            $seller->getId(),
+            $limit,
+            $offset
+        ));
+
+        /** @var ProductListView|null $result */
+        $result = $envelope->last(HandledStamp::class)?->getResult();
+        $views = $result?->items ?? [];
+
+        return $this->json([
+            'items' => array_map(
+                static fn (ProductView $view): array => $view->toArray(),
+                $views
+            ),
+            'count' => count($views),
+            'total' => $result?->total ?? count($views),
             'limit' => $limit,
             'offset' => $offset,
         ]);

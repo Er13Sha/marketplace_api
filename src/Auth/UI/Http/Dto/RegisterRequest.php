@@ -18,6 +18,12 @@ final class RegisterRequest
 
         #[Assert\Length(max: 32)]
         #[Assert\Regex(pattern: '/^\+?[0-9]{7,20}$/', message: 'Phone number must contain 7-20 digits and may start with +.')]
-        public readonly ?string $phoneNumber = null
+        public readonly ?string $phoneNumber = null,
+
+        #[Assert\Choice(choices: ['customer', 'seller'])]
+        public readonly string $accountType = 'customer',
+
+        #[Assert\Valid]
+        public readonly ?SellerProfileRequest $sellerProfile = null
     ) {}
 }

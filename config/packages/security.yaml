@@ -48,7 +48,8 @@ security:
             path: ^/api/inventory/stock/[0-9a-fA-F-]{36}$
             methods: [GET]
             roles: PUBLIC_ACCESS
-        - { path: ^/api/catalog/products$, methods: [POST], roles: ROLE_ADMIN }
+        - { path: ^/api/catalog/products/mine$, methods: [GET], roles: [ROLE_ADMIN, ROLE_SELLER] }
+        - { path: ^/api/catalog/products$, methods: [POST], roles: [ROLE_ADMIN, ROLE_SELLER] }
         -
             path: ^/api/catalog/products/[0-9a-fA-F-]{36}/category$
             methods: [PATCH]

@@ -8,6 +8,7 @@ use App\Catalog\Domain\Repository\ProductRepositoryInterface;
 use App\Catalog\Domain\ValueObject\ProductId;
 use App\Catalog\Domain\ValueObject\Sku;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\QueryBuilder;
 
 class ProductRepositoryDoctrine implements ProductRepositoryInterface
 {
@@ -48,9 +49,26 @@ class ProductRepositoryDoctrine implements ProductRepositoryInterface
             ->setMaxResults($limit)
             ->setFirstResult($offset);
 
+        $this->applyCriteria($qb, $filters);
+
+        return $qb->getQuery()->getResult();
+    }
+
+    public function countByCriteria(array $filters): int
+    {
+        $qb = $this->em->getRepository(Product::class)->createQueryBuilder('p')
+            ->select('COUNT(p.id)');
+
+        $this->applyCriteria($qb, $filters);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
+    private function applyCriteria(QueryBuilder $qb, array $filters): void
+    {
         if (!empty($filters['name'])) {
-            $qb->andWhere('p.name LIKE :name')
-                ->setParameter('name', '%' . $filters['name'] . '%');
+            $qb->andWhere('LOWER(p.name) LIKE :name OR LOWER(p.sku.value) LIKE :name')
+                ->setParameter('name', '%' . strtolower((string) $filters['name']) . '%');
         }
 
         if (!empty($filters['categoryId'])) {
@@ -58,6 +76,9 @@ class ProductRepositoryDoctrine implements ProductRepositoryInterface
                 ->setParameter('categoryId', $filters['categoryId']);
         }
 
-        return $qb->getQuery()->getResult();
+        if (!empty($filters['sellerId'])) {
+            $qb->andWhere('p.sellerId = :sellerId')
+                ->setParameter('sellerId', $filters['sellerId']);
+        }
     }
 }

@@ -15,6 +15,7 @@ final class ProductView
         public readonly int $priceAmount,
         public readonly string $currency,
         public readonly ?CategoryView $category,
+        public readonly ?string $sellerId,
         public readonly string $createdAt,
         public readonly string $updatedAt
     ) {}
@@ -29,6 +30,7 @@ final class ProductView
             $product->getPrice()->getAmount(),
             $product->getPrice()->getCurrency(),
             $product->getCategory() ? CategoryView::fromEntity($product->getCategory()) : null,
+            $product->getSellerId(),
             $product->getCreatedAt()->format(\DateTimeInterface::ATOM),
             $product->getUpdatedAt()->format(\DateTimeInterface::ATOM)
         );
@@ -45,6 +47,7 @@ final class ProductView
             'price' => $this->priceAmount,
             'currency' => $this->currency,
             'category' => $this->category?->toArray(),
+            'seller_id' => $this->sellerId,
             'created_at' => $this->createdAt,
             'updated_at' => $this->updatedAt,
         ];

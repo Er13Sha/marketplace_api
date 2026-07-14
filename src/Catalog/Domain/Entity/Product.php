@@ -17,6 +17,7 @@ class Product
     private ?string $description;
     private ?Category $category = null;
     private Price $price;
+    private ?string $sellerId;
     private \DateTimeImmutable $createdAt;
     private \DateTimeImmutable $updatedAt;
 
@@ -24,10 +25,14 @@ class Product
     private array $domainEvents = [];
 
     // Конструктор для нового продукта
-    public function __construct(Sku $sku, string $name, Price $price, int $initialStock, ?string $description = null, ?Category $category = null)
+    public function __construct(Sku $sku, string $name, Price $price, int $initialStock, ?string $description = null, ?Category $category = null, ?string $sellerId = null)
     {
         if ($initialStock < 0) {
             throw new \DomainException('Initial stock cannot be negative');
+        }
+
+        if ($sellerId !== null && trim($sellerId) === '') {
+            throw new \DomainException('Seller id cannot be blank');
         }
 
         $this->id = new ProductId();
@@ -35,6 +40,7 @@ class Product
         $this->name = $name;
         $this->category = $category;
         $this->price = $price;
+        $this->sellerId = $sellerId;
         $this->description = $description;
         $this->createdAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
@@ -56,6 +62,7 @@ class Product
     public function getDescription(): ?string { return $this->description; }
     public function getCategory(): ?Category { return $this->category; }
     public function getPrice(): Price { return $this->price; }
+    public function getSellerId(): ?string { return $this->sellerId; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
 

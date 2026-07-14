@@ -192,6 +192,11 @@ final class CheckoutProductRepository implements ProductRepositoryInterface
     {
         return array_slice(array_values($this->products), $offset, $limit);
     }
+
+    public function countByCriteria(array $filters): int
+    {
+        return count($this->products);
+    }
 }
 
 final class CheckoutStockRepository implements StockRepositoryInterface

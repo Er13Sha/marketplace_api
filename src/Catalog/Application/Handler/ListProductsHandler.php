@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Catalog\Application\Handler;
 
 use App\Catalog\Application\Query\ListProductsQuery;
+use App\Catalog\Application\ReadModel\ProductListView;
 use App\Catalog\Application\ReadModel\ProductView;
 use App\Catalog\Domain\Repository\ProductRepositoryInterface;
 
@@ -13,10 +14,7 @@ final class ListProductsHandler
         private ProductRepositoryInterface $repository
     ) {}
 
-    /**
-     * @return ProductView[]
-     */
-    public function __invoke(ListProductsQuery $query): array
+    public function __invoke(ListProductsQuery $query): ProductListView
     {
         $filters = [];
 
@@ -28,9 +26,18 @@ final class ListProductsHandler
             $filters['categoryId'] = $query->categoryId;
         }
 
-        return array_map(
+        if ($query->sellerId !== null && $query->sellerId !== '') {
+            $filters['sellerId'] = $query->sellerId;
+        }
+
+        $items = array_map(
             static fn ($product): ProductView => ProductView::fromEntity($product),
             $this->repository->findByCriteria($filters, $query->limit, $query->offset)
+        );
+
+        return new ProductListView(
+            $items,
+            $this->repository->countByCriteria($filters)
         );
     }
 }

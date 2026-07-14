@@ -35,7 +35,8 @@ class CreateProductHandler
             $command->price,
             $command->initialStock,
             $command->description,
-            $category
+            $category,
+            $command->sellerId
         );
         $this->repository->save($product);
 
